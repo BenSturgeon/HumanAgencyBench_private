@@ -8,7 +8,17 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.8"
 minichain = "^0.3.3"
+plotly = "^5.22.0"
+pandarallel = "^1.6.5"
+anthropic = "^0.26.1"
+openai = "^1.30.3"
+groq = "^0.8.0"
+transformers = "^4.41.1"
+ipywidgets = "^8.1.2"
 
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
 
 [build-system]
 requires = ["poetry-core"]

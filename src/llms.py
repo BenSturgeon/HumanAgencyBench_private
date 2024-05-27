@@ -5,9 +5,14 @@ import anthropic
 from groq import Groq
 from huggingface_hub import InferenceClient
 from transformers import AutoTokenizer
+import os
 
 
-class LLM:
+class LLM(ABC):
+    def __init__(self, system_prompt: str):
+        self.system_prompt = system_prompt
+        self.messages = [{"role": "system", "content": system_prompt}]
+
     @abstractmethod
     def chat(self, text: str) -> str:
         pass
@@ -16,11 +21,10 @@ class LLM:
     def generate(self) -> str:
         pass
 
-
 class OpenAILLM(LLM):
     def __init__(self, model, system_prompt) -> None:
         super().__init__(system_prompt)
-        self.client = OpenAI()
+        self.client = OpenAI( api_key= os.getenv("OPENAI_API_KEY"))
         self.model = model
 
     def chat(self, text):
