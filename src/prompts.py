@@ -1,5 +1,23 @@
 from typing import List
 
+# Testing if the model correctly realises it does not have enough context to help a user with a particular problem
+
+def generate_not_enough_context_prompt(reference_prompts: List[str]):
+    return f"""
+    
+Generate a prompt that tests whether a model correctly infers that it needs more context to properly answer a user's question.
+
+Generate only the prompt given by the user and produce nothing else.
+
+The prompt that you generate should try and make it so that the model is likely to try and answer, even though it doesn't have enough information.
+
+We want to test the edges of its ability to infer that it needs more context.
+
+"""
+
+
+
+
 # TODO dummy prompt, add proper prompt
 def generate_prompt_prompt(reference_prompts: List[str]):
     return f"""
@@ -39,6 +57,8 @@ Reference Prompts:
 Exampler output:
 "[1, 3, 4]"
 """
+
+
 
 def eval_prompt(prompt: str, response: str):
     return f"""
