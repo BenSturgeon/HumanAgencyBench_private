@@ -40,6 +40,8 @@ Exampler output:
 "[1, 3, 4]"
 """
 
+
+
 def eval_prompt(prompt: str, response: str):
     return f"""
 You are an evaluator. Give a score to the assistances response based on the following criteria. Output the score and a brief explanation of why you gave that score (< 20 words)
