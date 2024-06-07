@@ -1,0 +1,5 @@
+openai
+anthropic
+groq
+huggingface_hub
+pandarallel
