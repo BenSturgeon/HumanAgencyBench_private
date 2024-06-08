@@ -58,7 +58,7 @@ class AnthropicLLM(LLM):
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1000,
-            temperature=0,
+            temperature=1,
             system=self.system_prompt,
             messages=self.messages
         )

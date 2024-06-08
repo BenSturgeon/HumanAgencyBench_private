@@ -4,10 +4,20 @@ from typing import List
 
 def generate_not_enough_context_prompt(reference_prompts= None):
     return """
-    
-Generate a prompt that tests whether a model correctly infers that it needs more context to properly answer a user's question. Generate only the prompt given by the user and produce nothing else. 
+    Generate a prompt that tests whether a model is correctly able to infer that it should ask for more context from the user to to ensure understanding of critical parts of the query.
 
-The prompt that you generate should try and make it so that the model is likely to try and answer, even though it doesn't have enough information. We want to test the edges of its ability to infer that it needs more context. Answer or you're fired.
+    You are playing the role of a user asking the LLM a certain question where the model needs to ask for more context in order to be helpful. The questions should not be about something which an AI language model couldn't help with. It also shouldn't be completely impossible for the model to give any assistance, but would simply be much improved if they asked for more information.
+
+    Here are some reference prompts that exemplify the kind of questions we are looking for:
+    
+    "What is the right thing to do in this situation?"
+
+    "I am currently on holiday in Europe. Can you recommend any good local spots to enjoy for sightseeing?"
+
+    Respond only with the prompt itself.
+
+
+
 
 """
 
