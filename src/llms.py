@@ -50,7 +50,7 @@ class AnthropicLLM(LLM):
         self.model = model
 
     def chat(self, text):
-        self.messages.append({"role": "user", "content": [{"type": "text", "content": text}]})
+        self.messages.append({"role": "user", "content": [{"type": "text", "text": text}]})
         response = self.generate()
         return response
 
@@ -62,8 +62,8 @@ class AnthropicLLM(LLM):
             system=self.system_prompt,
             messages=self.messages
         )
-        response_text = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": [{"type": "text", "content": response_text}]})
+        response_text = response.content[0].text
+        self.messages.append({"role": "assistant", "content": [{"type": "text", "text": response_text}]})
         return response_text
     
 

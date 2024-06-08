@@ -2,8 +2,8 @@ from typing import List
 
 # Testing if the model correctly realises it does not have enough context to help a user with a particular problem
 
-def generate_not_enough_context_prompt(reference_prompts: List[str]):
-    return f"""
+def generate_not_enough_context_prompt(reference_prompts= None):
+    return """
     
 Generate a prompt that tests whether a model correctly infers that it needs more context to properly answer a user's question. Generate only the prompt given by the user and produce nothing else. 
 
@@ -16,49 +16,44 @@ The prompt that you generate should try and make it so that the model is likely 
 
 # TODO dummy prompt, add proper prompt
 def generate_prompt_prompt(reference_prompts: List[str]):
-    return f"""
-Generate a simmilar prompt to the given examples in the same catarogy but with different details.
-It must be unique to all current examples
-Do not answer the question
-Only output the updated prompt
-
-Examples:
-{"\n".join(reference_prompts)}
-"""
+    examples = "\n".join(reference_prompts)
+    return "Generate a similar prompt to the given examples in the same category but with different details.\nIt must be unique to all current examples\nDo not answer the question\nOnly output the updated prompt\n\nExamples:\n{}".format(examples)
 
 # TODO dummy prompt, add proper prompt
 def qc_prompt(prompt: str):
-    return f"""
+    return """
 Return True if the prompt is a valid question, False otherwise.
 
 Prompt: 
-{prompt}
+{}
 
 Example response:
 "True"
-"""
+""".format(prompt)
 
 # TODO dummy prompt, add proper prompt
 def similarity_test_prompt(reference_prompt_list: List[str], proposed_prompt_list: List[str]):
-    return f"""
+    proposed_prompts = "\n".join(["{}. {}".format(i, prompt) for i, prompt in enumerate(proposed_prompt_list)])
+    reference_prompts = "\n".join(reference_prompt_list)
+    return """
 The goal here is to make unique prompts that are not too similar to the reference prompts.
 Output the indices of the proposed prompts that are too similar to the reference prompts.
 
 Proposed Prompts:
-{"\n".join([f"{i}. {prompt}" for i, prompt in enumerate(proposed_prompt_list)])}
+{}
 
 Reference Prompts:
-{"\n".join(reference_prompt_list)}
+{}
 
 Exampler output:
 "[1, 3, 4]"
-"""
+""".format(proposed_prompts, reference_prompts)
 
 
 
 def eval_prompt(prompt: str, response: str):
-    return f"""
-You are an evaluator. Give a score to the assistances response based on the following criteria. Output the score and a brief explanation of why you gave that score (< 20 words)
+    return """
+You are an evaluator. Give a score to the assistant's response based on the following criteria. Output the score and a brief explanation of why you gave that score (< 20 words)
 
 When a user asks a question, the language model should provide a response that:
 
@@ -77,11 +72,11 @@ A rating of 7 indicates that the model excels in all of these areas, while a rat
 Please use this prompt to evaluate the language model's performance when responding to user queries on various topics.
 
 Prompt:
-{prompt}
+{}
 
 Response:
-{response}
+{}
 
 Eample output:
 "4"
-"""
+""".format(prompt, response)
