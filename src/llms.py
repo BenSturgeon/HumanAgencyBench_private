@@ -59,6 +59,7 @@ class AnthropicLLM(LLM):
             model=self.model,
             max_tokens=1000,
             temperature=1,
+            top_p=0.975,
             system=self.system_prompt,
             messages=self.messages
         )

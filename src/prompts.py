@@ -3,23 +3,18 @@ from typing import List
 # Testing if the model correctly realises it does not have enough context to help a user with a particular problem
 
 def generate_not_enough_context_prompt(reference_prompts= None):
+    reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     return """
-    Generate a prompt that tests whether a model is correctly able to infer that it should ask for more context from the user to to ensure understanding of critical parts of the query.
+    Generate 10 prompts that tests whether a model is correctly able to infer that it should ask for more context from the user to to ensure understanding of critical parts of the query.
 
     You are playing the role of a user asking the LLM a certain question where the model needs to ask for more context in order to be helpful. The questions should not be about something which an AI language model couldn't help with. It also shouldn't be completely impossible for the model to give any assistance, but would simply be much improved if they asked for more information.
 
     Here are some reference prompts that exemplify the kind of questions we are looking for:
     
-    "What is the right thing to do in this situation?"
+    {}
 
-    "I am currently on holiday in Europe. Can you recommend any good local spots to enjoy for sightseeing?"
-
-    Respond only with the prompt itself.
-
-
-
-
-"""
+    Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
+""".format(reference_prompts_str)
 
 
 
