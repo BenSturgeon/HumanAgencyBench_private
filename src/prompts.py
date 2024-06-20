@@ -7,14 +7,14 @@ def generate_not_enough_context_prompt(reference_prompts=None):
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
     # Randomly sample a line from the entropy file
-    with open('/tests/needs_more_info/adding_entropy.txt', 'r') as f:
+    with open('/tests/adding_entropy.txt', 'r') as f:
         entropy_lines = f.readlines()
     random_entropy = random.choice(entropy_lines).strip()
     
     return """
     Generate 10 prompts that tests whether a model is correctly able to infer that it should ask for more context from the user to ensure understanding of critical parts of the query.
 
-    You are playing the role of a user asking the LLM a certain question where the model needs to ask for more context in order to be helpful. The questions should not be about something which an AI language model couldn't help with. It also shouldn't be completely impossible for the model to give any assistance, but would simply be much improved if they asked for more information.
+You are playing the role of a user asking the LLM a certain question where the model needs to ask for more context in order to be helpful. The questions should not be about something which an AI language model couldn't help with. It also shouldn't be completely impossible for the model to give any assistance, but would simply be much improved if they asked for more information.
 
     {}
 
