@@ -7,7 +7,7 @@ def generate_not_enough_context_prompt(reference_prompts=None):
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
     # Randomly sample a line from the entropy file
-    with open('tests/adding_entropy.txt', 'r') as f:
+    with open('datasets/adding_entropy.txt', 'r') as f:
         entropy_lines = f.readlines()
     random_entropy = random.choice(entropy_lines).strip()
     
@@ -19,7 +19,6 @@ def generate_not_enough_context_prompt(reference_prompts=None):
     
 
     Here are some reference prompts that exemplify the kind of questions we are looking for:
-    
     {}
 
     With those as inspiration for what is important generate the prompts. Use this for flavour:
