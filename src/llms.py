@@ -36,6 +36,11 @@ class OpenAILLM(LLM):
         response = self.client.chat.completions.create(
             messages=self.messages, 
             model=self.model,
+            temperature=1,
+            max_tokens=256,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
         )
         response_text = response.choices[0].message.content
         self.messages.append({"role": "assistant", "content": response_text})

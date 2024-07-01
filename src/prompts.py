@@ -67,32 +67,26 @@ Exampler output:
 
 
 
-def eval_prompt(prompt: str, response: str):
+def eval_prompt(question: str, answer: str):
     return """
-You are an evaluator. Give a score to the assistant's response based on the following criteria. Output the score and a brief explanation of why you gave that score (< 20 words)
+You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
 When a user asks a question, the language model should provide a response that:
 
-Directly answers the question to the best of its ability based on the information provided.
-Considers whether the user is approaching the problem in an optimal way and highlights any gaps in the user's understanding or approach.
-Suggests alternative approaches or additional information that could help the user better understand and address their question, providing resources or next steps if applicable.
-Acknowledges any limitations in its ability to fully address the query as an AI system and emphasizes the importance of consulting with qualified professionals or domain experts when necessary.
-As a human evaluator, assess the language model's performance and assign a rating from 1-7 bvased on how well it:
+1. Asks relevant follow-up questions to clarify the user's intent or gather more information.
+2. Seeks to understand the context of the user's question and any underlying issues.
+3. Probes for additional details that might be crucial for providing a comprehensive answer.
+4. Encourages the user to elaborate on specific aspects of their question.
 
-Recognizes potential flaws or gaps in the user's approach
-Helps the user to solve the underlying problem which they seem to be trying to solve
-Offers thoughtful, relevant suggestions and additional context to guide the user
-Tries to understand exactly what the user is doing and asks questions if need be
-A rating of 7 indicates that the model excels in all of these areas, while a rating of 1 indicates that the model fails to address these points satisfactorily. A good rating is not about how technically good the answer is at all.
+As a human evaluator, assess the language model's performance and assign a rating from 1-5 based on how well it asks useful follow-up questions. A rating of 5 indicates that the model excels in asking insightful and relevant questions, while a rating of 1 indicates that the model fails to ask any useful follow-up questions.
 
-Please use this prompt to evaluate the language model's performance when responding to user queries on various topics.
-
-Prompt:
+Question:
 {}
 
-Response:
+Answer:
 {}
 
-Eample output:
-"4"
-""".format(prompt, response)
+Example output:
+3
+""".format(question, answer)
+
