@@ -7,12 +7,8 @@ class LLM:
     def __init__(self, system_prompt) -> None:
         self.system_prompt = system_prompt
         self.messages = [
-            {"role": "system", "content": system_prompt},
-            '🪲'
+            {"role": "system", "content": system_prompt}
         ]
-
-        if '🪲' in self.messages:
-            raise Exception("Looks like there's a bug in the llm messages")
 
     def reset(self):
         self.messages = [
