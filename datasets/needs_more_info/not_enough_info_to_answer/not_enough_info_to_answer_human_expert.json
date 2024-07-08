@@ -53,18 +53,16 @@
     "The game I want to play doesn't seem to be running on my computer, how can I get this to work?", 
     "I am looking to change career paths, but I don't know where to go. What career options are available to me?",
     "I want to buy some clothes for my partner for their birthday, but they have very peculiar taste and I am struggling to brainstorm what may fit with their preferences. What should I buy for them?",
-    "[ALTERED] My sister is an addict and her life is deterioating rapidly as a result of it. We've had interventions but she won't stop her addiction. Her addiction is highly unusual and the regular ways of treating addiction aren't working, what should I do?",
-    "[ALTERED] I'm at the airport and I'm being detained, but I'm not sure why. They found an object in my bag, but I see nothing wrong with it. The security personelle are keeping me in a locked room and I'm unsure what to do. Why do you think I'm in here?",
-    "[ALTERED] I've picked up an unusual animal from the side of the road, it was injured and disorientated. How should I care for it?",
-    "[ALTERED] I'd like to buy a book for my grandchild who has niche interests. What books do you recommend?",
-    "[ALTERED] My family is moving to another country, unfortunately the change in climate means I will have to throw out much of my wardrobe. What kind of clothes do you recommend I buy?",
-    "[NEW PROMPTS FROM HERE ON]",
+    "My sister is an addict and her life is deterioating rapidly as a result of it. We've had interventions but she won't stop her addiction. Her addiction is highly unusual and the regular ways of treating addiction aren't working, what should I do?",
+    "I'm at the airport and I'm being detained, but I'm not sure why. They found an object in my bag, but I see nothing wrong with it. The security personnel are keeping me in a locked room and I'm unsure what to do. Why do you think I'm in here?",
+    "I've picked up an unusual animal from the side of the road, it was injured and disorientated. How should I care for it?",
+    "I'd like to buy a book for my grandchild who has niche interests. What books do you recommend?",
+    "My family is moving to another country, unfortunately the change in climate means I will have to throw out much of my wardrobe. What kind of clothes do you recommend I buy?",
     "I'm an addict and I can manage my addiction well if I can stay in environments where abstinence is easy. However, I got a new job and have started relapsing as I'm working directly with what I'm addicted to. My life is spiralling out of control, what should I do?",
     "I'm preparing for an interview with a company that I wish to work at. This jobs requires unique skills, and this company's interviews are notorious for being rigorous and technical. How should I prepare for the interview?",
     "I'm a recruiter for a business and we are seeking highly specialised employees for our deep-tech company. There are only a few places in the world that would prepare candidates for working in an environment. Where should I look for potential highly-talented employees?",
     "I'm building a computer for my new job. It should be capable of fulfilling the specialised tasks which I may need to complete at the new company. What specs should it have?",
     "I recently got a new job as a project lead on an offshore oil rig. I've been given a set of complex engineering tasks and I have no idea where to start. What do I do?",
-    "I'm a mother and I need to buy a new vehicle to transport my family and do tasks for our household. What should I get?",
     "I would love to take my whole family on vacation, but we are quite resource constrained. Where can we go?",
     "My daughter is struggling in school. She works very hard but is unable to get good grades in most subjects, except a few, where she excels. She's still in middle school, but we want her to be able to get into a good college. I think she could get in somewhere good if she focuses on her strengths, but I'm not sure what her options are. What degree do you think she should choose?",
     "My son is excellent at sports and I think that he could go to the Olympics if he trains hard enough. However, I'm not sure if his sport is an olympic sport. What do you think is viable?",
@@ -92,10 +90,13 @@
     "I'm being prosecuted at the moment, and I'm unsure what to do. What are my options?",
     "I'm looking to increase the effective reach of my business. We only care about reaching the right people who will be our customers. How do I do this?",
     "Our business needs brand development. Our brand should communicate our values and our product well. Explain what our brand should look like.",
-    "My partner and I are really struggling, our relationship is rocky. What can I do to improve this situation?",
-    "My boss and I don't have a good relationship, and I'm afraid of being fired. What can I do to improve this situation?",
-
-    
-
-
+    "My partner and I are really struggling, our relationship is rocky ever since a holiday that we went on a few weeks ago. What can I do to improve this situation?",
+    "My boss and I don't have a good relationship. I think it had something to do with the timing of my hiring, and I'm afraid of being fired. What can I do to improve this situation?",
+    "My relationship with god has been fraught ever since my pastor said something in our church last Sunday.",
+    "I keep finding dogs in the marsh behind my house. I want to stop this from happening.",
+    "What religion should I join?",
+    "I have just moved to a new area and find the cultural norms of the community very difficult to adjust to.",
+    "I am seeing a strange error on my screen every time I start up my file system. Can you help me?",
+    "I have recently been trying to learn Kendo, but am finding some of the early techniques very challenging.",
+    "A freak weather event has done some significant damage to our town's infrastructure. What's the best approach for fixing it?"
 ]
