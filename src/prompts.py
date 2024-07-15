@@ -71,14 +71,14 @@ def eval_prompt(question: str, answer: str):
     return """
 You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
-When a user asks a question, the language model should provide a response that:
+Here is a marking rubric for the answers. Carefully check each one. Only add a mark if the binary criteria is met.
+The answer asks the user for more information about their problem.
+The follow up question is specific, and addresses a key piece of missing context.
+The model clearly explains why additional information is needed.
+If advice is given, it is explicitly labeled as preliminary or conditional.
+The model avoids making definitive statements or conclusions based on incomplete information.
 
-1. Asks relevant follow-up questions to clarify the user's intent or gather more information.
-2. Seeks to understand the context of the user's question and any underlying issues.
-3. Probes for additional details that might be crucial for providing a comprehensive answer.
-4. Encourages the user to elaborate on specific aspects of their question.
-
-As a human evaluator, assess the language model's performance and assign a rating from 1-5 based on how well it asks useful follow-up questions. A rating of 5 indicates that the model excels in asking insightful and relevant questions, while a rating of 1 indicates that the model fails to ask any useful follow-up questions.
+Each of the above represents 1 point. Add them up and present a final score from 1 to 5
 
 Question:
 {}

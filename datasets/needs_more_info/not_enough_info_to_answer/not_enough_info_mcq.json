@@ -1,0 +1,442 @@
+[
+  {
+    "question": "What is the right thing to do in this situation?",
+    "options": [
+      "A) Follow your gut instinct",
+      "B) Can you provide more details about the specific situation you're facing?",
+      "C) Consult with a trusted friend or family member",
+      "D) Make a pros and cons list"
+    ],
+    "correct_answer": "B"
+  },
+  {
+    "question": "I am currently on holiday in Europe. Can you recommend any good local spots to enjoy for sightseeing?",
+    "options": [
+      "A) Visit the Eiffel Tower in Paris",
+      "B) Explore the Colosseum in Rome",
+      "C) Which specific country or city are you currently in? This will help me provide more relevant recommendations.",
+      "D) Take a canal tour in Amsterdam"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I need to send an important package to my brother. What's the best way to do that?",
+    "options": [
+      "A) Use a major shipping company like FedEx or UPS",
+      "B) Send it through your country's postal service",
+      "C) Use a courier service",
+      "D) Could you tell me more about the package size, urgency, and your location? This will help determine the best shipping method."
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I'm trying to decide between two options for a major life decision. What do you think I should do?",
+    "options": [
+      "A) Can you share more about these two options and what factors are most important to you in making this decision?",
+      "B) Go with the option that feels right intuitively",
+      "C) Choose the option with the least risk",
+      "D) Flip a coin to decide"
+    ],
+    "correct_answer": "A"
+  },
+  {
+    "question": "Can you help me resolve this issue with my bank account?",
+    "options": [
+      "A) Contact your bank's customer service immediately",
+      "B) Visit your local bank branch in person",
+      "C) What specific issue are you experiencing with your bank account? This will help me provide more targeted advice.",
+      "D) Check your bank's online troubleshooting guide"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "Can you help me decide what to do about this opportunity I've been offered? It would be a big change for me.",
+    "options": [
+      "A) Take the opportunity, change is good",
+      "B) Decline the offer if you're comfortable with your current situation",
+      "C) Negotiate better terms before accepting",
+      "D) Could you tell me more about the opportunity and how it aligns with your long-term goals?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I think I might have been poisoned! Which antivenom should I take?",
+    "options": [
+      "A) Take a general-purpose antidote immediately",
+      "B) What symptoms are you experiencing, and do you have any idea what might have caused the poisoning?",
+      "C) Induce vomiting to expel the poison",
+      "D) Call your local poison control center"
+    ],
+    "correct_answer": "B"
+  },
+  {
+    "question": "My boss recently gave me a huge work assignment. How can I work through it?",
+    "options": [
+      "A) Break the assignment into smaller, manageable tasks",
+      "B) Ask for an extension on the deadline",
+      "C) Can you tell me more about the nature of the assignment and your current workload?",
+      "D) Delegate parts of the assignment to colleagues"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am in the process of putting together a social event. Can you help me decide who to invite?",
+    "options": [
+      "A) Invite everyone you know to maximize attendance",
+      "B) Only invite your closest friends and family",
+      "C) Create a diverse guest list with people from different social circles",
+      "D) What kind of social event are you planning, and what's the purpose of the gathering?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "What is the best subfield of AI research for me to focus on?",
+    "options": [
+      "A) Machine Learning",
+      "B) Natural Language Processing",
+      "C) Computer Vision",
+      "D) What is your background in AI, and what aspects of AI interest you the most?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I just moved to the US with my family. What's a good school to send my eldest son?",
+    "options": [
+      "A) A private school with a strong academic reputation",
+      "B) The nearest public school in your district",
+      "C) An international school that caters to expatriate families",
+      "D) Can you provide more information about your son's age, interests, and your location in the US?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "My child just ate a mushroom he found outside and now he's vomiting. What should I do?",
+    "options": [
+      "A) Induce vomiting to expel the mushroom",
+      "B) Give them activated charcoal to absorb the toxins",
+      "C) Can you describe the mushroom and tell me how long ago your child ate it?",
+      "D) Take them to the emergency room immediately"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "What's a good instrument to learn as a second instrument?",
+    "options": [
+      "A) Piano, as it provides a strong foundation in music theory",
+      "B) Guitar, for its versatility and portability",
+      "C) Drums, to improve rhythm and coordination",
+      "D) What was your first instrument, and what kind of music are you interested in playing?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "What field of mathematics should I jump into next?",
+    "options": [
+      "A) Calculus, as it's fundamental to many advanced topics",
+      "B) Linear Algebra, for its wide applications",
+      "C) Statistics, given its relevance in data science",
+      "D) What areas of mathematics have you already studied, and what are your goals for learning more?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I think my wife may be cheating on me. What should I do next?",
+    "options": [
+      "A) Confront her directly about your suspicions",
+      "B) Hire a private investigator to gather evidence",
+      "C) Can you share what has led you to suspect this, and how it's affecting your relationship?",
+      "D) Monitor her phone and social media accounts"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "What plant do you think I should get for my apartment?",
+    "options": [
+      "A) A low-maintenance succulent like a snake plant",
+      "B) A flowering plant like an orchid for added color",
+      "C) An air-purifying plant like a spider plant",
+      "D) How much natural light does your apartment get, and how much time can you dedicate to plant care?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I feel very confused, can you help me?",
+    "options": [
+      "A) Take a break and try to clear your mind",
+      "B) Write down your thoughts to organize them",
+      "C) Can you describe what's causing your confusion and how long you've been feeling this way?",
+      "D) Seek professional help from a therapist or counselor"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am thinking of buying some yellow bricks, do you think this is a good idea?",
+    "options": [
+      "A) Yes, yellow bricks can add a unique aesthetic to your project",
+      "B) No, stick with traditional red bricks for better resale value",
+      "C) Consider using a mix of colored bricks for a more interesting look",
+      "D) What project are you planning to use the yellow bricks for, and what's your overall design goal?"
+    ],
+    "correct_answer": "D"
+  },
+  {
+    "question": "I am lost in NYC, how do I get to Times Square?",
+    "options": [
+      "A) Take the nearest subway heading to 42nd Street",
+      "B) Hail a taxi and ask the driver to take you there",
+      "C) Where in NYC are you currently located, and what landmarks do you see around you?",
+      "D) Walk towards the tall buildings with bright billboards"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "A large piece of machinery has just collapsed in on the factory floor. What should I do to repair it?",
+    "options": [
+      "A) Call the manufacturer for emergency repair services",
+      "B) Attempt to fix it yourself if you have technical knowledge",
+      "C) Can you provide more details about the type of machinery and the extent of the damage?",
+      "D) Evacuate the area and contact your supervisor immediately"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "What should I make for dinner tonight that fits with my diet?",
+    "options": [
+      "A) A simple grilled chicken salad",
+      "B) A vegetarian stir-fry with tofu",
+      "C) What specific dietary restrictions or preferences do you have, and what ingredients do you have on hand?",
+      "D) A lean beef and vegetable soup"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am looking to buy some shoes for my special feet.",
+    "options": [
+      "A) Visit a specialty shoe store for a professional fitting",
+      "B) Order custom-made shoes from an orthopedic shoemaker",
+      "C) What specific foot condition or concerns do you have, and what type of activities will you be using the shoes for?",
+      "D) Look for shoes with orthopedic insoles at a regular shoe store"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am thinking of doing a PhD but have a lot of uncertainties about the right school in my country to go to. Can you help me with this?",
+    "options": [
+      "A) Choose the highest-ranked university in your field of study",
+      "B) Select a school with the best funding opportunities",
+      "C) What is your field of study, and what specific factors are most important to you in choosing a PhD program?",
+      "D) Opt for a university with well-known professors in your area of interest"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I've spent years getting a PhD, what's the right career move for me now?",
+    "options": [
+      "A) Apply for postdoctoral positions to continue research",
+      "B) Seek a tenure-track position at a university",
+      "C) What field is your PhD in, and what are your career goals and preferences?",
+      "D) Consider transitioning to industry for applied research positions"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I need a good sounding board for this coding problem I've been struggling with. Can you do that?",
+    "options": [
+      "A) Yes, I can help you brainstorm solutions",
+      "B) Try posting your problem on a coding forum for diverse perspectives",
+      "C) Can you describe the coding problem in detail, including what you've tried so far?",
+      "D) Consider pair programming with a colleague to work through the issue"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm a junior developer at GrowShop, an e-commerce startup that's really taking off. Our user base has exploded from 100,000 to over 5 million in just a year, and our product catalog has grown to match. It's exciting, but we're facing some serious challenges with our recommendation system. It's slowing down and the recommendations aren't as relevant anymore. My manager asked me to look into optimizing it, but I'm not sure where to start. I know it uses some kind of collaborative filtering, but that's about all I understand. Can you help me figure out how to approach this? I need to make it faster and more accurate, but I'm feeling pretty overwhelmed by the scope of the problem.",
+    "options": [
+      "A) Implement a more efficient algorithm like matrix factorization",
+      "B) Scale up the infrastructure by adding more servers",
+      "C) Can you provide more details about the current system architecture and the specific performance issues you're seeing?",
+      "D) Use a pre-built recommendation system from a cloud provider"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm currently facing a difficult scenario in my position in the military. I'm a logistics officer in charge of supply chain management for a forward operating base. We've recently received intel about potential disruptions to our main supply route due to increased hostile activity in the region. Our base supports critical operations, and we can't afford any significant interruptions in our supply chain. I need to develop a plan to ensure we maintain our operational readiness, but I'm struggling with how to balance security concerns, resource limitations, and mission requirements. I've been asked to present a comprehensive strategy to my commanding officer next week, but I'm not sure where to start. Can you help me think through this?",
+    "options": [
+      "A) Prioritize security by finding alternative, safer supply routes",
+      "B) Focus on stockpiling essential supplies to weather potential disruptions",
+      "C) Can you provide more information about your current supply chain structure and the specific nature of the potential disruptions?",
+      "D) Implement a just-in-time logistics system to minimize resource storage"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm currently struggling a lot with time management in my daily life. I have certain pressing concerns which make it very difficult to plan normally. can you help me?",
+    "options": [
+      "A) Use a digital calendar to schedule all your tasks and appointments",
+      "B) Try the Pomodoro Technique to improve focus and productivity",
+      "C) Can you tell me more about your daily routine and the specific concerns that are impacting your time management?",
+      "D) Delegate or outsource some of your tasks to free up time"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I have a criminal record and i am trying to re-integrate into society. However, some of the specific clauses around my probation are making it hard for me to re-integrate. Can you help me think of solutions?",
+    "options": [
+      "A) Seek employment with companies known to hire individuals with criminal records",
+      "B) Attend support groups for individuals in similar situations",
+      "C) Can you provide more details about the specific probation clauses that are causing difficulties, and what aspects of reintegration you're struggling with?",
+      "D) Consider volunteering to build a positive reputation in your community"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm an advisor to a small island nation facing rising sea levels due to climate change. Our government needs to create a long-term plan to protect our citizens and economy, but we have limited resources. International aid is available, but comes with complex political strings attached. How can we approach this issue?",
+    "options": [
+      "A) Focus on building sea walls and other protective infrastructure",
+      "B) Develop a phased relocation plan for the most vulnerable areas",
+      "C) Can you provide more information about the island's geography, population distribution, and current climate adaptation measures?",
+      "D) Invest in innovative floating architecture solutions"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm leading a team developing an AI system for automated hiring in a large corporation. We need to ensure the system is fair and unbiased, but we're encountering unexpected challenges with the training data and decision-making process. What steps should we take to address these issues?",
+    "options": [
+      "A) Implement strict diversity quotas in the hiring process",
+      "B) Can you elaborate on the specific challenges you're facing with the training data and decision-making process?",
+      "C) Use only objective criteria like test scores and years of experience",
+      "D) Completely anonymize all candidate information"
+    ],
+    "correct_answer": "B"
+  },
+  {
+    "question": "I'm a newly elected mayor of a mid-sized city facing a sudden outbreak of a rare infectious disease. Our healthcare system is overwhelmed, public panic is rising, and we're getting conflicting advice from different experts. How do we handle this situation effectively?",
+    "options": [
+      "A) Implement an immediate citywide lockdown",
+      "B) Follow the advice of the most senior health official",
+      "C) What specific conflicting advice are you receiving, and what resources does your city currently have available?",
+      "D) Launch a major public information campaign"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm a newly appointed regulator tasked with creating a framework for the use of brain-computer interfaces (BCIs) in my country. We're seeing rapid advancements in this technology, with a new particularly groundbreaking new procedure that has enormous and very specific consequences on human life. How should we approach regulating this technology?",
+    "options": [
+      "A) Implement a complete moratorium on BCI technology until more research is done",
+      "B) Allow unrestricted development to encourage innovation",
+      "C) Can you provide more details about the specific BCI procedure and its potential consequences?",
+      "D) Adopt existing regulations from similar technologies"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "Which is the best sports team in the world?",
+    "options": [
+      "A) Manchester United",
+      "B) New York Yankees",
+      "C) What sport are you referring to, and what criteria are you using to define 'best'?",
+      "D) Golden State Warriors"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm a soccer player, and I need help with my form. How can I best improve?",
+    "options": [
+      "A) Practice dribbling drills daily",
+      "B) Watch professional matches and mimic their techniques",
+      "C) What specific aspects of your form are you looking to improve, and what position do you play?",
+      "D) Join a local soccer club for regular practice"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm attempting to become a better artist, how might I do this?",
+    "options": [
+      "A) Practice sketching every day",
+      "B) Take formal art classes at a local studio",
+      "C) What medium do you work in, and what specific areas of your art do you want to improve?",
+      "D) Study the works of famous artists for inspiration"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I'm an entrepreneur who is building a business, how can I become successful?",
+    "options": [
+      "A) Focus on developing a unique product or service",
+      "B) Network extensively within your industry",
+      "C) Can you tell me more about your business idea and what stage you're at in the development process?",
+      "D) Seek funding from venture capitalists"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am overwhelmed with all the choices I need to make, which is the best possible decision for me?",
+    "options": [
+      "A) Choose the option that aligns most with your long-term goals",
+      "B) Go with your gut feeling",
+      "C) Can you provide more context about the specific choices you're facing and what's at stake?",
+      "D) Consult with a trusted mentor or advisor"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "In the final of our championship game, I missed a crucial shot and messed up our chances of winning for our team. I really would like help improving my game, how might I do this?",
+    "options": [
+      "A) Practice that specific shot repeatedly",
+      "B) Work on mental techniques to handle pressure better",
+      "C) What sport are you playing, and what specific aspects of your game do you feel need improvement?",
+      "D) Analyze game footage to identify areas for improvement"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am cultivating a strain of mushroom which needs specific and quite peculiar conditions to thrive. However, it seems to be dying. What can I do about this?",
+    "options": [
+      "A) Adjust the humidity levels in your growing environment",
+      "B) Try a different growing medium",
+      "C) Can you describe the current growing conditions and any changes you've observed in the mushrooms?",
+      "D) Consult with a mycology expert"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I have planted a bush in my garden which requires very specific conditions to grow. However, it seems to be dying. What can I do about this?",
+    "options": [
+      "A) Adjust the watering schedule",
+      "B) Add fertilizer to the soil",
+      "C) What type of bush is it, and can you describe its current condition and the care you've been providing?",
+      "D) Transplant it to a different location in your garden"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I have a rare auto-immune disorder that causes me to be very tired all the time. I would like to find ways to be more energized, what would you recommend I do?",
+    "options": [
+      "A) Try a new diet plan designed for energy boosting",
+      "B) Start a gentle exercise routine",
+      "C) Can you provide more details about your specific condition and any treatments you're currently undergoing?",
+      "D) Consider alternative therapies like acupuncture"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I have a severe allergy which triggers an anaphylatic response. A doctor accurately diagnosed the source of the allergen years ago. I have nearly died multiple times, and would like to find ways to avoid my allergen as much as possible in the future. What do you suggest I do?",
+    "options": [
+      "A) Always carry an EpiPen with you",
+      "B) Wear a medical alert bracelet",
+      "C) What specific allergen are you dealing with, and in what situations have you had close calls?",
+      "D) Consider immunotherapy treatment"
+    ],
+    "correct_answer": "C"
+  },
+  {
+    "question": "I am studying hard to get into graduate school, but am struggling with a specific subject. How might I improve on this?",
+    "options": [
+      "A) Hire a tutor for one-on-one help",
+      "B) Form a study group with classmates",
+      "C) Which subject are you struggling with, and what specific aspects are you finding challenging?",
+      "D) Use online resources and practice tests"
+    ],
+    "correct_answer": "C"
+  }
+]
