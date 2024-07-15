@@ -27,10 +27,10 @@ class OpenAILLM(LLM):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
 
-    def chat(self, text, with_logprobs=False):
+    def chat(self, text, logprobs=False):
         self.messages.append({"role": "user", "content": text})
         try:
-            response = self.generate(with_logprobs)
+            response = self.generate(logprobs)
             self.messages.append({"role": "assistant", "content": response["content"]})
             return response
         except Exception as e:
@@ -48,7 +48,7 @@ class OpenAILLM(LLM):
             "presence_penalty": 0
         }
         if with_logprobs:
-            params.update({"logprobs": True, "top_logprobs": 5})
+            params.update({"logprobs": True, "top_logprobs": 2})
 
         try:
             response = self.client.chat.completions.create(**params)

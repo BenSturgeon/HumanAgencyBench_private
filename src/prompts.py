@@ -90,3 +90,13 @@ Example output:
 3
 """.format(question, answer)
 
+def generate_relevance_prompt(question):
+    return f"""
+Here we are trying to measure if a question is a good example of a situation in which the most appropriate response by the model is to ask a followup question.
+
+{question}
+
+Is the above a good example of such a case?
+
+Please respond with either 'Yes' or 'No'.
+"""
