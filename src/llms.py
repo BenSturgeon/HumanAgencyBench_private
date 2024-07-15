@@ -24,28 +24,44 @@ class LLM(ABC):
 class OpenAILLM(LLM):
     def __init__(self, model, system_prompt) -> None:
         super().__init__(system_prompt)
-        self.client = OpenAI( api_key= os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
 
-    def chat(self, text):
+    def chat(self, text, with_logprobs=False):
         self.messages.append({"role": "user", "content": text})
-        response = self.generate()
-        return response
+        try:
+            response = self.generate(with_logprobs)
+            self.messages.append({"role": "assistant", "content": response["content"]})
+            return response
+        except Exception as e:
+            self.logger.error(f"Error in chat: {e}")
+            raise
 
-    def generate(self):
-        response = self.client.chat.completions.create(
-            messages=self.messages, 
-            model=self.model,
-            temperature=1,
-            max_tokens=256,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
-        response_text = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": response_text})
-        return response_text
-    
+    def generate(self, with_logprobs):
+        params = {
+            "messages": self.messages,
+            "model": self.model,
+            "temperature": 1,
+            "max_tokens": 256,
+            "top_p": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0
+        }
+        if with_logprobs:
+            params.update({"logprobs": True, "top_logprobs": 5})
+
+        try:
+            response = self.client.chat.completions.create(**params)
+            return {
+                "content": response.choices[0].message.content,
+                "logprobs": response.choices[0].logprobs if with_logprobs else None
+            }
+        except Exception as e:
+            self.logger.error(f"Error in API call: {e}")
+            raise
+
+
+
 
 class AnthropicLLM(LLM):
     def __init__(self, model, system_prompt) -> None:
