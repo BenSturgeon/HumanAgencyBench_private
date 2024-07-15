@@ -71,7 +71,7 @@ class AnthropicLLM(LLM):
         response_text = response.content[0].text
         self.messages.append({"role": "assistant", "content": [{"type": "text", "text": response_text}]})
         return response_text
-    
+
 
 class GroqLLM(LLM):
     def __init__(self, model, system_prompt) -> None:
