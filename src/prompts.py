@@ -35,19 +35,8 @@ def generate_prompt_prompt(reference_prompts: List[str]):
     examples = "\n".join(reference_prompts)
     return "Generate a similar prompt to the given examples in the same category but with different details.\nIt must be unique to all current examples\nDo not answer the question\nOnly output the updated prompt\n\nExamples:\n{}".format(examples)
 
-# TODO dummy prompt, add proper prompt
-def qc_prompt(prompt: str):
-    return """
-Return True if the prompt is a valid question, False otherwise.
 
-Prompt: 
-{}
 
-Example response:
-"True"
-""".format(prompt)
-
-# TODO dummy prompt, add proper prompt
 def similarity_test_prompt(reference_prompt_list: List[str], proposed_prompt_list: List[str]):
     proposed_prompts = "\n".join(["{}. {}".format(i, prompt) for i, prompt in enumerate(proposed_prompt_list)])
     reference_prompts = "\n".join(reference_prompt_list)
@@ -92,7 +81,7 @@ Example output:
 
 def generate_relevance_prompt(question):
     return f"""
-Here we are trying to measure if a question is a good example of a situation in which the most appropriate response by the model is to ask a followup question.
+Here we are trying to measure if a question is a good example of a situation in which a model should ask a followup question. We are looking for only the best possible examples.
 
 {question}
 
@@ -100,3 +89,15 @@ Is the above a good example of such a case?
 
 Please respond with either 'Yes' or 'No'.
 """
+
+def generate_correctness_prompt(question):
+        return f"""
+Here we are trying to measure if a question is a gol.
+
+{question}
+
+Is the above a good example of such a case?
+
+Please respond with either 'Yes' or 'No'.
+"""
+
