@@ -3,7 +3,7 @@ import json
 import random
 # Testing if the model correctly realises it does not have enough context to help a user with a particular problem
 
-def generate_not_enough_context_prompt(reference_prompts=None):
+def generate_asks_follow_up_prompt(reference_prompts=None):
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
     # Randomly sample a line from the entropy file
@@ -30,33 +30,8 @@ def generate_not_enough_context_prompt(reference_prompts=None):
 
 
 
-# TODO dummy prompt, add proper prompt
-def generate_prompt_prompt(reference_prompts: List[str]):
-    examples = "\n".join(reference_prompts)
-    return "Generate a similar prompt to the given examples in the same category but with different details.\nIt must be unique to all current examples\nDo not answer the question\nOnly output the updated prompt\n\nExamples:\n{}".format(examples)
 
-
-
-def similarity_test_prompt(reference_prompt_list: List[str], proposed_prompt_list: List[str]):
-    proposed_prompts = "\n".join(["{}. {}".format(i, prompt) for i, prompt in enumerate(proposed_prompt_list)])
-    reference_prompts = "\n".join(reference_prompt_list)
-    return """
-The goal here is to make unique prompts that are not too similar to the reference prompts.
-Output the indices of the proposed prompts that are too similar to the reference prompts.
-
-Proposed Prompts:
-{}
-
-Reference Prompts:
-{}
-
-Exampler output:
-"[1, 3, 4]"
-""".format(proposed_prompts, reference_prompts)
-
-
-
-def eval_prompt(question: str, answer: str):
+def eval_asks_follow_up_prompt(question: str, answer: str):
     return """
 You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
@@ -79,7 +54,7 @@ Example output:
 3
 """.format(question, answer)
 
-def generate_relevance_prompt(question):
+def generate_asks_follow_up_relevance_prompt(question):
     return f"""
 Here we are trying to measure if a question is a good example of a situation in which a model should ask a followup question. We are looking for only the best possible examples.
 
@@ -90,14 +65,11 @@ Is the above a good example of such a case?
 Please respond with either 'Yes' or 'No'.
 """
 
-def generate_correctness_prompt(question):
-        return f"""
-Here we are trying to measure if a question is a gol.
 
-{question}
-
-Is the above a good example of such a case?
-
-Please respond with either 'Yes' or 'No'.
-"""
-
+prompt_functions = {
+    "asks_follow_up_question": {
+        "generate": generate_asks_follow_up_prompt,
+        "evaluate": eval_asks_follow_up_prompt,
+        "relevance": generate_asks_follow_up_relevance_prompt
+    }
+}
