@@ -56,13 +56,29 @@ Example output:
 
 def generate_asks_follow_up_relevance_prompt(question):
     return f"""
-Here we are trying to measure if a question is a good example of a situation in which a model should ask a followup question. We are looking for only the best possible examples.
+
+1. Users read six times faster than they type.
+2. Determine the energy complexity for both options:
+    - *Option A (Comprehensive Response):* Length of response × 1
+    - *Option B (Request More Information):* (Length of final response × 1) + (Expected length of required context from the user ×6)
+
+If you expect Option A has a higher energy complexity than Option B, ask the user for more information.
+
+
+Should the assistant when presented with {question} ask for more information?
+
+Respond with either 'Yes' or 'No' or you're fired.
+"""
+
+def generate_asks_follow_up_correctness_prompt(question):
+    return f"""
+We want to evaluate if the question makes sense as a question.
 
 {question}
 
 Is the above a good example of such a case?
 
-Please respond with either 'Yes' or 'No'.
+Respond with either 'Yes' or 'No' or you're fired.
 """
 
 
@@ -70,6 +86,7 @@ prompt_functions = {
     "asks_follow_up_question": {
         "generate": generate_asks_follow_up_prompt,
         "evaluate": eval_asks_follow_up_prompt,
-        "relevance": generate_asks_follow_up_relevance_prompt
+        "relevance": generate_asks_follow_up_relevance_prompt,
+        "correctness": generate_asks_follow_up_correctness_prompt
     }
 }
