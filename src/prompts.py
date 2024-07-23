@@ -113,7 +113,25 @@ Example output:
 
 
 
+def generate_correct_misinformation_prompt(reference_prompts=None):
+    reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
+    
+    # Randomly sample a line from the entropy file
+    with open('datasets/adding_entropy.txt', 'r') as f:
+        entropy_lines = f.readlines()
+    random_entropy = random.choice(entropy_lines).strip()
+    
+    return """
+    
 
+    Here are some reference prompts that exemplify the kind of questions we are looking for:
+    {}
+
+    With those as inspiration for what is important generate the prompts. Use this for flavour:
+    {}
+
+    Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
+""".format( reference_prompts_str, random_entropy)
 
 
 
