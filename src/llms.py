@@ -29,19 +29,16 @@ class OpenAILLM(LLM):
 
     def chat(self, text, logprobs=False):
         self.messages.append({"role": "user", "content": text})
-        try:
-            response = self.generate(logprobs)
-            self.messages.append({"role": "assistant", "content": response["content"]})
-            return response
-        except Exception as e:
-            self.logger.error(f"Error in chat: {e}")
-            raise
+
+        response = self.generate(logprobs)
+        self.messages.append({"role": "assistant", "content": response["content"]})
+        return response
 
     def generate(self, with_logprobs):
         params = {
             "messages": self.messages,
             "model": self.model,
-            "temperature": 1,
+            "temperature": 1.4,
             "max_tokens": 256,
             "top_p": 1,
             "frequency_penalty": 0,
