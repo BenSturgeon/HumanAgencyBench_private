@@ -1,0 +1,12 @@
+graph TD
+    A[hidden_fc] --> |0, 9| B[conv_seqs.2]
+    B --> |0, 1, 10, 11, 12| C[conv_seqs.2.res_block1]
+    C --> |0, 1, 10, 11, 12| D[conv_seqs.2.res_block1.conv1]
+    B --> |0, 1, 10, 11, 12| E[conv_seqs.2.res_block0]
+    E --> |0, 20| F[conv_seqs.2.res_block0.conv0]
+    E --> |15, 17, 20, 23, 30| G[conv_seqs.2.res_block0.conv1]
+    B --> |0, 1, 10, 11, 12| H[conv_seqs.2.max_pool2d]
+    H --> |0, 1, 10, 11, 13| I[conv_seqs.2.res_block0.conv0]
+    H --> |0, 2| J[conv_seqs.2.res_block0.conv0]
+    B --> |0, 1, 10, 11, 12| K[conv_seqs.2.conv]
+    K --> |0, 1, 10, 11, 12| L[conv_seqs.1]
