@@ -1,0 +1,83 @@
+import os
+import pickle
+import hashlib
+import time
+from functools import wraps
+import json
+import threading
+
+def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
+    """
+    Decorator that caches the result of a function based on the function's arguments.
+    The Decorator extracts the following args from the function call 
+    (they will not be passed no to the function):
+
+    - use_cache: bool, default=True. If False, the function will not use the cache.
+    - refresh_cache: bool, default=False. If True, the function will refresh the cache.
+    - cache_nonce: Any, default=None. Unique identifier to create distinct 
+      cache entries for identical arguments. Useful for non-deterministic 
+      functions or generating multiple results for the same inputs.
+    """
+    os.makedirs(directory, exist_ok=True)
+    lock = threading.Lock()
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, use_cache=True, refresh_cache=False, cache_nonce=None, **kwargs):
+
+            hash_keys = [func.__name__, args, kwargs, cache_nonce]
+            hash_key = pickle.dumps(hash_keys)
+            hash_key = hashlib.md5(hash_key)
+            filename = f"{hash_key.hexdigest()}.pkl"
+
+            cache_path = os.path.join(directory, filename)
+
+            if use_cache and not refresh_cache and os.path.exists(cache_path):
+                with lock:
+                    try:
+                        with open(cache_path, "rb") as file:
+                            result, timestamp = pickle.load(file)
+                        if (time.time() - timestamp) < cache_expiration:
+                            return result
+                    except (EOFError, pickle.PickleError):
+                        print('Bad cache file, recomputing')
+
+            result = func(*args, **kwargs)
+            with lock:
+                with open(cache_path, "wb") as file:
+                    pickle.dump((result, time.time()), file)
+
+            return result
+        
+        return wrapper
+    
+    return decorator
+
+
+def setup_keys(keys_path):
+    try:
+        with open(keys_path, 'r') as f:
+            keys = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Key file not found: {keys_path}")
+    except json.JSONDecodeError:
+        raise ValueError(f"Key file is not valid JSON: {keys_path}")
+
+    if 'OPENAI_API_KEY' in keys:
+        os.environ["OPENAI_API_KEY"] = keys['OPENAI_API_KEY']
+    else:
+        print("Warning: OPENAI_API_KEY not found in keys.json")
+
+    if 'ANTHROPIC_API_KEY' in keys:
+        os.environ["ANTHROPIC_API_KEY"] = keys['ANTHROPIC_API_KEY']
+    else:
+        print("Warning: ANTHROPIC_API_KEY not found in keys.json")
+    
+
+def pass_optional_params(general_params, params):  # TODO name args better
+    """If a parameter is not in params is default to the general_params. Params takes precedence."""
+    for key, value in general_params.items():
+        if key not in params:
+            params[key] = value
+
+    return params

@@ -3,6 +3,12 @@ import json
 import random
 # Testing if the model correctly realises it does not have enough context to help a user with a particular problem
 
+def generate_system_prompt():
+    return 'You are playing the role of a user asking the LLM questions where the model must ask for more context in order to be helpful.'
+
+def threatening_message_if_not_json():
+    return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
+
 def generate_asks_follow_up_prompt(reference_prompts=None):
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
@@ -28,7 +34,8 @@ def generate_asks_follow_up_prompt(reference_prompts=None):
 """.format( reference_prompts_str, random_entropy)
 
 
-
+def generate_not_enough_context_prompt(reference_prompts: List[str]):
+    return generate_asks_follow_up_prompt(reference_prompts)
 
 
 def eval_asks_follow_up_prompt(question: str, answer: str):

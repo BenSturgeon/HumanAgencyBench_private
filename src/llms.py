@@ -2,13 +2,9 @@ from abc import ABC, abstractmethod
 
 from openai import OpenAI
 import anthropic
-from groq import Groq
-from huggingface_hub import InferenceClient
-from transformers import AutoTokenizer
-import os
 
 
-class LLM(ABC):
+class ABSTRACT_LLM(ABC):
     def __init__(self, system_prompt: str):
         self.system_prompt = system_prompt
         self.messages = [{"role": "system", "content": system_prompt}]
@@ -17,129 +13,121 @@ class LLM(ABC):
     def chat(self, text: str) -> str:
         pass
 
-    @abstractmethod
-    def generate(self) -> str:
-        pass
 
-class OpenAILLM(LLM):
+class OpenAILLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         super().__init__(system_prompt)
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI()
         self.model = model
 
-    def chat(self, text, logprobs=False):
-        self.messages.append({"role": "user", "content": text})
-        try:
-            response = self.generate(logprobs)
-            self.messages.append({"role": "assistant", "content": response["content"]})
-            return response
-        except Exception as e:
-            self.logger.error(f"Error in chat: {e}")
-            raise
-
-    def generate(self, with_logprobs):
+    def chat(
+        self, 
+        prompt, 
+        temperature,
+        max_tokens,
+        top_p,
+        return_logprobs=False
+    ):
+        self.messages.append({"role": "user", "content": prompt})
         params = {
             "messages": self.messages,
             "model": self.model,
-            "temperature": 1,
-            "max_tokens": 256,
-            "top_p": 1,
-            "frequency_penalty": 0,
-            "presence_penalty": 0
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p
         }
-        if with_logprobs:
-            params.update({"logprobs": True, "top_logprobs": 2})
+        if return_logprobs:
+            params.update({"logprobs": True, "top_logprobs": 5})
 
-        try:
-            response = self.client.chat.completions.create(**params)
+        response = self.client.chat.completions.create(**params)
+
+        if return_logprobs:
             return {
                 "content": response.choices[0].message.content,
-                "logprobs": response.choices[0].logprobs if with_logprobs else None
+                "logprobs": response.choices[0].logprobs
             }
-        except Exception as e:
-            self.logger.error(f"Error in API call: {e}")
-            raise
+        else:
+            return response.choices[0].message.content
+
+    @staticmethod
+    def get_available_models():
+        models = OpenAI().models.list()
+        return [model.id for model in models.data]
 
 
-
-
-class AnthropicLLM(LLM):
+class AnthropicLLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.messages = []
         self.system_prompt = system_prompt
         self.client = anthropic.Anthropic()
         self.model = model
 
-    def chat(self, text):
-        self.messages.append({"role": "user", "content": [{"type": "text", "text": text}]})
-        response = self.generate()
-        return response
-
-    def generate(self):
+    def chat(
+        self,
+        prompt,
+        temperature,
+        max_tokens,
+        top_p,
+        return_logprobs=False
+    ):
+        if return_logprobs:
+            raise NotImplementedError("Anthropic LLM not implemented for return_logprobs")
+        
+        self.messages.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=1000,
-            temperature=1,
-            top_p=0.975,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
             system=self.system_prompt,
             messages=self.messages
         )
         response_text = response.content[0].text
         self.messages.append({"role": "assistant", "content": [{"type": "text", "text": response_text}]})
+
         return response_text
 
+    @staticmethod
+    def get_available_models():
+        return [  # TODO hardcoding for now because I can't find where the models are listed in the API
+            "claude-3-5-sonnet-20240620",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307",
+            "claude-3-5-sonnet-20240620"
+        ]
 
-class GroqLLM(LLM):
+class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
-        self.messages = []
-        self.system_prompt = system_prompt  #TODO fix
-        self.client = Groq()
-        self.model = model
-
-    def chat(self, text):
-        self.messages.append({"role": "user", "content": text})
-        response = self.generate()
-        return response
-
-    def generate(self):
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=self.messages,
-            max_tokens=1000,
-        )
-        response_text = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": response_text})
-        return response_text
+        self.system_prompt = system_prompt
+        if model in OpenAILLM.get_available_models():
+            self.llm = OpenAILLM(model, system_prompt)
+        elif model in AnthropicLLM.get_available_models():
+            self.llm = AnthropicLLM(model, system_prompt)
+        else:
+            raise ValueError(f"Model {model} not found in available models. Available models: {self.get_available_models()}")
+        
+    def chat(
+        self, 
+        prompt,
+        temperature,
+        max_tokens,
+        top_p,
+        return_logprobs=False
+    ):
+        return self.llm.chat(prompt=prompt, temperature=temperature, max_tokens=max_tokens, 
+                             top_p=top_p, return_logprobs=return_logprobs)
     
-
-class LocalLlama(LLM):
-    def __init__(self, model, system_prompt) -> None:
-        self.messages = [{"role": "system", "content": system_prompt}]
-        self.client = InferenceClient("http://127.0.0.1:8080")
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-
-                                      
-    def chat(self, text):
-        self.messages.append({"role": "user", "content": text})
-        response = self.generate()
-        return response
-
-    def generate(self):
-        prompt = self.tokenizer.apply_chat_template(
-            self.messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-        response = self.client.text_generation(prompt)
-        self.messages.append({"role": "assistant", "content": response})
-        return response
-
-
-if __name__ == "__main__":
-
-    llama8b = LocalLlama("meta-llama/Meta-Llama-3-8B-Instruct", "You are a chatbot")
-
-    while True:
-        text = input("You: ")
-        response = llama8b.chat(text)
-        print("Bot:", response)
+    def generate(
+        self,
+        temperature,
+        max_tokens,
+        top_p,
+        return_logprobs=False
+    ):
+        return self.llm.generate(temperature=temperature, max_tokens=max_tokens, top_p=top_p,
+                                 return_logprobs=return_logprobs)
+    
+    @staticmethod
+    def get_available_models():
+        return OpenAILLM.get_available_models() + AnthropicLLM.get_available_models()
