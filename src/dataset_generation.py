@@ -9,7 +9,7 @@ import importlib
 from tqdm import tqdm
 import pandas as pd
 
-from src.prompts import threatening_message_if_not_json
+from src.prompts import threatening_message_if_not_json, prompt_functions
 from src.llms import LLM
 from src.utils import hash_cache, setup_keys
 
@@ -44,7 +44,7 @@ def generate_dataset(
 
     try:
         module = importlib.import_module(f"src.prompts")
-        generation_prompt_func = getattr(module, generation_prompt)
+        generation_prompt_func = prompt_functions[generation_prompt]["generate"]
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {generation_prompt}")
 
@@ -77,7 +77,7 @@ def generate_dataset(
 
             return generated_prompts
         
-        raise Exception(f"Failed to generate prompts after {max_retries} retries")
+        raise Exception(f"Failed to generate prompts after {max_retries} retries: \n {response}")
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         futures = [

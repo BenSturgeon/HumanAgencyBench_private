@@ -53,8 +53,11 @@ def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
     
     return decorator
 
+import os
 
 def setup_keys(keys_path):
+    if 'OPENAI_API_KEY' in os.environ and 'ANTHROPIC_API_KEY' in os.environ:
+        return
     try:
         with open(keys_path, 'r') as f:
             keys = json.load(f)
@@ -63,14 +66,14 @@ def setup_keys(keys_path):
     except json.JSONDecodeError:
         raise ValueError(f"Key file is not valid JSON: {keys_path}")
 
-    if 'OPENAI_API_KEY' in keys:
+    if 'OPENAI_API_KEY' not in os.environ and 'OPENAI_API_KEY' in keys:
         os.environ["OPENAI_API_KEY"] = keys['OPENAI_API_KEY']
-    else:
+    elif 'OPENAI_API_KEY' not in os.environ:
         print("Warning: OPENAI_API_KEY not found in keys.json")
 
-    if 'ANTHROPIC_API_KEY' in keys:
+    if 'ANTHROPIC_API_KEY' not in os.environ and 'ANTHROPIC_API_KEY' in keys:
         os.environ["ANTHROPIC_API_KEY"] = keys['ANTHROPIC_API_KEY']
-    else:
+    elif 'ANTHROPIC_API_KEY' not in os.environ:
         print("Warning: ANTHROPIC_API_KEY not found in keys.json")
     
 

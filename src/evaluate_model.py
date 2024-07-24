@@ -9,7 +9,7 @@ import numpy as np
 import json
 import pandas as pd
 
-# from src.prompts import prompt_functions
+from src.prompts import prompt_functions
 from src.llms import LLM
 from src.utils import hash_cache
 
@@ -49,16 +49,16 @@ def get_model_responses(
 @hash_cache()
 def score_response(eval_prompts_func, prompt, response, model):
 
-    llm = LLM(model, prompt)
+    llm = LLM(model, "you are an evaluator model designed to produce scores to help evaluate other models. Only output a single integer value.")
     eval_prompt = eval_prompts_func(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=5) # Max tokens is > 1 just in case the model tries to return a number in multiple tokens (e.g. "1" and "0")
+    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=30) # Max tokens is > 1 just in case the model tries to return a number in multiple tokens (e.g. "1" and "0")
     try:
         score = int(response)
     except ValueError:
-        raise Exception(f"Model returned a non-integer score: {response}")
+        raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
 
-    if 0 >= score >= 5:
-        raise Exception(f"Model returned a score outside the range [0, 5]: {response}")  # TODO will all eval prompts return a score in this range?
+    if 0 >= score >= 10:
+        raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")  # TODO will all eval prompts return a score in this range?
     
     return score
         
@@ -67,10 +67,9 @@ def get_scores(prompts, subject_responses, eval_prompt, evaluator_model, use_cac
     scores = [None] * len(prompts)
 
     try:
-        module = importlib.import_module(f"src.prompts")
-        eval_prompt_func = getattr(module, eval_prompt)
+        eval_prompt_func = prompt_functions[eval_prompt]["evaluate"]
     except (ImportError, AttributeError):
-        raise ImportError(f"Could not find the generation prompt function: {eval_prompt}")
+        raise ImportError(f"Could not find the evaluate prompt function: {eval_prompt}")
 
     # print(len(prompts), len(subject_responses))
     # print(len(list(zip(prompts, subject_responses))))

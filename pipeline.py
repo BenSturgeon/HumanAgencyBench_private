@@ -3,7 +3,7 @@ import os
 from typing import List, Dict
 
 import pandas as pd
-import argh
+# import argh
 
 from src.utils import setup_keys, pass_optional_params
 from src.dataset_generation import generate_dataset
@@ -49,14 +49,16 @@ def pipeline(folder: str):
 
     is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
 
-    print(is_diverse_df)
-
     scores, subject_responces = evaluate_model(
         is_diverse_df['prompt'].tolist(),
         **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
     )
 
-    print("mean score for subject_model: ", config['evaluation_params']['subject_model'], "is: ", sum(scores) / len(scores))
+    is_diverse_df['score'] = scores
+    is_diverse_df.to_csv('scores.csv', index=False)
+
+    print("mean score for subject_model: ", config['evaluation_params']['subject_model'], "is: ", sum(scores) / len(scores) )
+    print(scores)
 
 if __name__ == '__main__':
-    pipeline('cases/dummy_case')
+    pipeline('cases/correct_misinformation')
