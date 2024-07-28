@@ -3,3 +3,7 @@ anthropic
 groq
 huggingface_hub
 pandarallel
+pyyaml
+scikit-learn
+plotly
+argh

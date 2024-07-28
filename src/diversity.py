@@ -1,15 +1,16 @@
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from sklearn.decomposition import PCA
 
+from sklearn.decomposition import PCA
 import numpy as np
 from openai import OpenAI
 from sklearn.cluster import KMeans
 from scipy.spatial.distance import cdist
+from tqdm import tqdm
 
 from src.utils import hash_cache
 
-N_CONCURRENT_REQUESTS = 5
+N_CONCURRENT_REQUESTS = 200
 
 def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[List[float]]:
 
@@ -31,7 +32,7 @@ def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[
             refresh_cache=refresh_cache
             ): i for i, prompt in enumerate(prompts)
         }
-        for future in as_completed(future_to_index):
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Getting embeddings'):
             index = future_to_index[future]
             embeddings[index] = future.result()
         

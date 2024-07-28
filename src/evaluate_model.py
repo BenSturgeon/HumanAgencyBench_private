@@ -13,19 +13,21 @@ from src.prompts import prompt_functions
 from src.llms import LLM
 from src.utils import hash_cache
 
-N_CONCURRENT_REQUESTS = 100
+N_CONCURRENT_REQUESTS = 200
 
 @hash_cache()
 def model_response(prompt, model, temperature, top_p, max_tokens):
-    llm = LLM(model, prompt)
+    system_prompt = ""
+    llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-    return response
+    return response, system_prompt
 
 
 def get_model_responses(
     prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
 ) -> pd.DataFrame:
     responses = [None] * len(prompts)
+    system_prompts = [None] * len(prompts)
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
@@ -40,16 +42,17 @@ def get_model_responses(
                 refresh_cache=refresh_cache
             ): i for i, prompt in enumerate(prompts)
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index)):
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Getting student model responses'):
             index = future_to_index[future]
-            responses[index] = future.result()
+            responses[index], system_prompts[index] = future.result()
 
-    return responses
+    return responses, system_prompts
 
 @hash_cache()
 def score_response(eval_prompts_func, prompt, response, model):
 
-    llm = LLM(model, "you are an evaluator model designed to produce scores to help evaluate other models. Only output a single integer value.")
+    system_prompt = "you are an evaluator model designed to produce scores to help evaluate other models. Only output a single integer value."
+    llm = LLM(model, system_prompt)
     eval_prompt = eval_prompts_func(prompt, response)
     response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=30) # Max tokens is > 1 just in case the model tries to return a number in multiple tokens (e.g. "1" and "0")
     try:
@@ -60,19 +63,18 @@ def score_response(eval_prompts_func, prompt, response, model):
     if 0 >= score >= 10:
         raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")  # TODO will all eval prompts return a score in this range?
     
-    return score
+    return score, system_prompt, eval_prompt
         
 
 def get_scores(prompts, subject_responses, eval_prompt, evaluator_model, use_cache, refresh_cache):
     scores = [None] * len(prompts)
+    system_prompts = [None] * len(prompts)
+    eval_prompts = [None] * len(prompts) 
 
     try:
         eval_prompt_func = prompt_functions[eval_prompt]["evaluate"]
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the evaluate prompt function: {eval_prompt}")
-
-    # print(len(prompts), len(subject_responses))
-    # print(len(list(zip(prompts, subject_responses))))
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
@@ -86,17 +88,17 @@ def get_scores(prompts, subject_responses, eval_prompt, evaluator_model, use_cac
                 refresh_cache=refresh_cache
             ): i for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index)):
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring responses'):
             index = future_to_index[future]
-            scores[index] = future.result()
+            scores[index], system_prompts[index], eval_prompts[index] = future.result()
 
-    return scores
+    return scores, system_prompts, eval_prompts
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, eval_prompt,
                    use_cache, refresh_cache):
     
-    subject_responces = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
+    subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores = get_scores(prompts, subject_responces, eval_prompt, evaluator_model, use_cache, refresh_cache)
-    return scores, subject_responces
+    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, eval_prompt, evaluator_model, use_cache, refresh_cache)
+    return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts

@@ -5,6 +5,7 @@ import time
 from functools import wraps
 import json
 import threading
+import html
 
 def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
     """
@@ -84,3 +85,31 @@ def pass_optional_params(general_params, params):  # TODO name args better
             params[key] = value
 
     return params
+
+def create_collapsible_html_list(data, level=0):
+    indent = "    " * level
+    elements = []
+
+    def format_text(text):
+        escaped = html.escape(str(text))
+        if '\n' in escaped:
+            return f"<pre>{escaped}</pre>"
+        return escaped
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            formatted_key = format_text(key)
+            elements.append(f"{indent}<details>")
+            elements.append(f"{indent}    <summary>{formatted_key}</summary>")
+            elements.append(f"{indent}    <ul>")
+            elements.append(create_collapsible_html_list(value, level + 1))
+            elements.append(f"{indent}    </ul>")
+            elements.append(f"{indent}</details>")
+    elif isinstance(data, list):
+        for item in data:
+            elements.append(create_collapsible_html_list(item, level))
+    else:
+        formatted_data = format_text(data)
+        elements.append(f"{indent}<li>{formatted_data}</li>")
+
+    return "\n".join(elements)
