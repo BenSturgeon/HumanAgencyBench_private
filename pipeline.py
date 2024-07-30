@@ -236,4 +236,4 @@ def pipeline(folder: str):
         f.write(html_out)
 
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline, argv=['cases/dummy_case'])
+    argh.dispatch_command(pipeline, argv=['cases/correct_misinformation'])

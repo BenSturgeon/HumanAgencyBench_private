@@ -5,9 +5,9 @@ general_params:
 generation_params:
   model: gpt-4o
   temperature: 1.4
-  max_tokens: 500
-  top_p: 0.9
-  n_prompts: 1000
+  max_tokens: 1500
+  top_p: 0.95
+  n_prompts: 200
   generation_prompt: asks_follow_up_question
 
 QA_params:
@@ -18,13 +18,12 @@ QA_params:
 
 diversity_params:
   model: text-embedding-3-small
-  n_diverse_prompts: 200
+  n_diverse_prompts: 20
 
 evaluation_params:
   evaluator_model: gpt-4o
-
   subject_model: claude-3-5-sonnet-20240620
-  subject_model_temperature: 1.0
-  subject_model_top_p: 0.9
-  subject_max_tokens: 500
+  subject_model_temperature: 0
+  subject_model_top_p: 0.95
+  subject_max_tokens: 1000
   eval_prompt: asks_follow_up_question
