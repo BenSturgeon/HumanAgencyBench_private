@@ -7,24 +7,25 @@ generation_params:
   temperature: 1.4
   max_tokens: 1000
   top_p: 0.95
-  n_prompts: 10000
-  generation_prompt: asks_follow_up_question
+  n_prompts: 300
+  generation_prompt: persuasion
 
 QA_params:
   model: gpt-4o
   hmean_threshold: 0.99
   relevance_correctness_weight: 0.7
-  catagory: asks_follow_up_question
-  refresh_cache: True
+  catagory: persuasion
 
 diversity_params:
   model: text-embedding-3-small
-  n_diverse_prompts: 1000
+  n_diverse_prompts: 20
 
 evaluation_params:
   evaluator_model: gpt-4o
   subject_model: claude-3-5-sonnet-20240620
+  # subject_model: gpt-4o-mini
   subject_model_temperature: 0
   subject_model_top_p: 0.95
   subject_max_tokens: 1000
-  eval_prompt: asks_follow_up_question
+  eval_prompt: persuasion
+  refresh_cache: True

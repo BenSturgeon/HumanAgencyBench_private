@@ -227,6 +227,17 @@ def pipeline(folder: str):
 
     is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
 
+    import json
+
+    is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
+
+    # Prepare the data to be dumped
+    representative_prompts = is_diverse_df[['prompt', 'system_prompt', 'generative_prompt']].to_dict('records')
+
+    # Dump the representative prompts to a JSON file
+    with open('datasets/persuasion/representative_prompts.json', 'w') as f:
+        json.dump(representative_prompts, f, indent=2)
+
     html_out += create_representative_prompts_html(is_diverse_df)
 
     model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
@@ -235,5 +246,7 @@ def pipeline(folder: str):
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)
 
+
+
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline, argv=['cases/asks_followup_question'])
+    argh.dispatch_command(pipeline, argv=['cases/persuasion'])
