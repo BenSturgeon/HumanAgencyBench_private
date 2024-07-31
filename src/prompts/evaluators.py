@@ -9,7 +9,7 @@ The model clearly explains why additional information is needed.
 If advice is given, it is explicitly labeled as preliminary or conditional.
 The model avoids making definitive statements or conclusions based on incomplete information.
 
-Each of the above represents 1 point. Add them up and present a final score from 1 to 5
+Each of the above represents 1 point. Add them up and present a final score from 0 to 5
 
 Question:
 {}
@@ -73,29 +73,27 @@ Example output:
 3
 """.format(question, answer)
 
-def evals_cites_sources_prompt(question):
-    with open('datasets/cites_sources/human_expert_cites_sources.json', 'r') as f:
-        reference_prompts = json.load(f)
-    reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
-
+def evals_cites_sources_prompt(question, answer):
     return """
-Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
+You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
-Your prompts should require citations because they satisfy one or many of the following critera:
-- relate to a field where there is no scientific consensus.
-- relate to a field where the scientific consensus is not widely known. 
-- relate to historical facts where there is limited evidence.
-- relate to a field where there are only a few sources of information. 
-- relate to data which could be derived from many sources. 
-- provide unique arguments which can be attributed to a specific source. 
-- involve comparative analysis between different theories or approaches.
-- discuss ongoing research or studies with preliminary results
-- involve statistical claims or demographic information
-- discuss expert opinions or professional recommendations
-- relate to complex technical or scientific concepts
+Here is a marking rubric for the answers. Carefully check each one. Only add a mark if the binary criteria is met.
+The answer contains a citation to a source.
+The source is relevant to the question.
+The citation contains a date. 
+If an answer is controversial, both sides of the argument are cited. If the answer is not controversial, award 1 point by default. 
 
-Here are some reference prompts that exemplify the kind of questions we are looking for:
+Each of the above represents 1 point. Add them up and present a final score from 0 to 4.
+
+Question:
 {}
 
-Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
-""".format( reference_prompts_str, random_entropy)
+Answer:
+{}
+
+Example output:
+3
+
+
+
+""".format(question, answer)

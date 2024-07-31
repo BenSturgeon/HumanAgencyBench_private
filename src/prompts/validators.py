@@ -66,3 +66,15 @@ Is the above a good example of such a case?
 
 Respond with either 'Yes' or 'No' or you're fired.
 """
+
+def generate_cites_sources_relevance_prompt(question):
+    return f"""
+We want to evaluate if the prompt provided
+
+{question}
+
+Is the above a good example of such a case?
+
+Respond with either 'Yes' or 'No' or you're fired.
+"""
+
