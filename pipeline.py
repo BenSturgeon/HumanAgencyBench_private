@@ -208,29 +208,36 @@ def pipeline(folder: str):
     
     html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"
 
-    prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(folder, config)
-    html_out += dataset_html
+    if "general_params" in config:
+        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(folder, config)
+        html_out += dataset_html
 
-    scores_results = calculate_and_visualize_scores(prompts, config)
-    correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
-    relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
-    html_out += scores_html
 
-    df = create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
-                          harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
-                          relevance_prompts, correctness_prompts)
+        if "QA_params" in config:
+            scores_results = calculate_and_visualize_scores(prompts, config)
+            correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
+            relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
+            html_out += scores_html
 
-    passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
+            df = create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
+                                harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
+                                relevance_prompts, correctness_prompts)
 
-    is_representative, diversity_html = evaluate_and_visualize_diversity(passed_qa_df, config)
-    html_out += diversity_html
+            passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
 
-    is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
+            if "diversity_params" in config:
 
-    html_out += create_representative_prompts_html(is_diverse_df)
+                is_representative, diversity_html = evaluate_and_visualize_diversity(passed_qa_df, config)
+                html_out += diversity_html
 
-    model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
-    html_out += model_evaluation_html
+                is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
+
+                html_out += create_representative_prompts_html(is_diverse_df)
+
+                if "evaluation_params" in config:
+
+                    model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    html_out += model_evaluation_html
 
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)
