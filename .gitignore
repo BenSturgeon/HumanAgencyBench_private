@@ -4,3 +4,5 @@
 __pycache__/
 keys.json
 .DS_Store
+plot.html
+spec.yaml
