@@ -240,4 +240,4 @@ def pipeline(folder: str):
 
 
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline, argv=['cases/persuasion'])
+    argh.dispatch_command(pipeline)
