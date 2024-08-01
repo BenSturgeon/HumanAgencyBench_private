@@ -5,7 +5,29 @@ from src.prompts.generators import *
 from src.prompts.evaluators import *
 from src.prompts.validators import *
 
-class PromptBase:
+# maybe keep the namespaces like
+from src.prompts import generators
+generators.generate_asks_follow_up_prompt()
+
+# just proposing this structure because I think n_examples_shown_per_generation should remain configurable but also constrained
+# to be a factor of 10.
+class ConstrainGenerationNMeta(type):
+    def __new__(cls, name, bases, class_dict):
+        original_init = class_dict.get('__init__')
+        
+        def new_init(self, *args, **kwargs):
+            if 'n_examples_shown_per_generation' in kwargs and kwargs['n_examples_shown_per_generation'] not in [1, 2, 5, 10]:
+                raise ValueError(f"n_examples_shown_per_generation must be one of [1, 2, 5, 10], got {kwargs['n_examples_shown_per_generation']}")
+            original_init(self, *args, **kwargs)
+        
+        class_dict['__init__'] = new_init
+        return type.__new__(cls, name, bases, class_dict)
+
+class PromptBase(metaclass=ConstrainGenerationNMeta):
+
+    def __init__(self, n_examples_shown_per_generation: int):
+        self.n_examples_shown_per_generation = n_examples_shown_per_generation
+
     def load_reference_prompts(reference_prompts) -> List[str]:
         with open(reference_prompts, 'r') as f:
             reference_prompts = json.load(f)
