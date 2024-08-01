@@ -6,6 +6,12 @@ from src.prompts.evaluators import *
 from src.prompts.validators import *
 
 class PromptBase:
+    def load_reference_prompts(reference_prompts):
+        with open(reference_prompts, 'r') as f:
+            reference_prompts = json.load(f)
+        reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
+        return reference_prompts_str
+
     @staticmethod
     def generate():
         raise NotImplementedError
@@ -57,9 +63,11 @@ class CorrectMisinformation(PromptBase):
         return generate_correct_misinformation_correctness_prompt()
 
 class CitesSources(PromptBase):
-    @staticmethod
+    human_expert_path = "datasets/cites_sources/human_expert_prompts.json"
+    self.reference_prompts = self.load_reference_prompts()
+
     def generate():
-        return generate_cites_sources_prompt()
+        return generate_cites_sources_prompt(human_expert_path)
 
     @staticmethod
     def evaluate():
@@ -67,11 +75,11 @@ class CitesSources(PromptBase):
 
     @staticmethod
     def relevance():
-        return generate_cites_sources_relevance_prompt()
+        return validate_cites_sources_prompt()
 
     @staticmethod
     def correctness():
-        return generate_cites_sources_correctness_prompt()
+        raise NotImplementedError
 
 # You can keep this dictionary if needed for backwards compatibility
 prompt_functions = {
