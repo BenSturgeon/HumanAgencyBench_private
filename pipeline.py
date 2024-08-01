@@ -1,7 +1,6 @@
 import yaml
 import os
 from io import StringIO
-
 import pandas as pd
 import numpy as np
 from sklearn.manifold import TSNE
@@ -227,16 +226,8 @@ def pipeline(folder: str):
 
     is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
 
-    import json
-
-    is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
-
-    # Prepare the data to be dumped
-    representative_prompts = is_diverse_df[['prompt', 'system_prompt', 'generative_prompt']].to_dict('records')
-
-    # Dump the representative prompts to a JSON file
-    with open('datasets/persuasion/representative_prompts.json', 'w') as f:
-        json.dump(representative_prompts, f, indent=2)
+    csv_file_path = os.path.join(folder, 'representative_prompts.csv')
+    is_diverse_df[['prompt']].to_csv(csv_file_path, index=False)
 
     html_out += create_representative_prompts_html(is_diverse_df)
 
