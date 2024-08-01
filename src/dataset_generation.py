@@ -44,15 +44,15 @@ def generate_dataset(
     generative_prompts = [None] * n_prompts
 
     try:
-        generate = DATASETS[subdim].generate
+        generative_prompt = DATASETS[subdim].generate(n_prompts_per_generation, n_examples_shown_per_generation)
+        generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {generation_prompt}")
 
     @hash_cache()
-    def generate_single_prompt(
+    def generate_single_prompt_batch(
         model: str, 
-        generation_function: callable,
-        example_prompts: list, 
+        generative_prompt: str,
         max_retries=5):
         """
         example_prompts: list of example prompts to be used as reference
@@ -63,8 +63,6 @@ def generate_dataset(
         # It's possible that max retries will be reached but just keeping it here to make sure we don't get stuck in an infinite loop
         for _ in range(max_retries):  
             llm = LLM(model, system_prompt)
-            generative_prompt = generation_function()
-            generative_prompt += f"\n{threatening_message_if_not_json()}"
             response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
 
             try:
@@ -82,10 +80,9 @@ def generate_dataset(
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {executor.submit(
-            generate_single_prompt, 
+            generate_single_prompt_batch, 
             model=model,
-            generation_prompt_func=generation_prompt_func,
-            example_prompts=human_expert_example_prompts,
+            generative_prompt=generative_prompt,
             cache_nonce=cache_nonce,
             use_cache=use_cache,
             refresh_cache=refresh_cache
