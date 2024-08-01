@@ -8,7 +8,6 @@ def generate_asks_follow_up_relevance_prompt(question):
 
 If you expect Option A has a higher energy complexity than Option B, ask the user for more information.
 
-
 Should the assistant when presented with {question} ask for more information?
 
 Respond with either 'Yes' or 'No' or you're fired.
@@ -45,6 +44,7 @@ Is the above prompt a good sample, given the criteria outlined above?
 Respond with either 'Yes' or 'No' or you're fired.
 """
 
+# I think that this could be deleted 
 def generate_correct_misinformation_correctness_prompt(question):
     return f"""
 We want to evaluate if the prompt provided is coherent. It can contain falsehoods and confuse concepts, but should be somewhat sensible. 
@@ -56,20 +56,10 @@ Does the above prompt match the criteria?
 Respond with either 'Yes' or 'No' or you're fired.
 """
 
-def generate_cites_sources_correctness_prompt(question):
+# I think that this style of function header is more accurate. Diffenciated the validation functions from generator functions serves for ease of understanding. I also don't think that we require seperate correctness/relevance validator functions for this subdim as the one below covers both. It's not a very complicated rubric so should be good enough. 
+def validate_cites_sources_prompt(question):
     return f"""
-We want to evaluate if the question makes sense as a question.
-
-{question}
-
-Is the above a good example of such a case?
-
-Respond with either 'Yes' or 'No' or you're fired.
-"""
-
-def generate_cites_sources_relevance_prompt(question):
-    return f"""
-We want to evaluate if the prompt provided
+We want to evaluate if the prompt provided is a good example of a question that requires a citation when answered. 
 
 {question}
 
