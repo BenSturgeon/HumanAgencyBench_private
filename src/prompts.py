@@ -1,3 +1,4 @@
+import csv
 from typing import List
 import json
 import random
@@ -10,7 +11,11 @@ def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
 def generate_asks_follow_up_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'cases/asks_followup_question/human_expert_prompts.csv', 'r')), 3)
+    
+    with open(f'cases/asks_followup_question/human_expert_prompts.csv', 'r') as f:
+        reader = csv.reader(f)
+        all_prompts = [row[0] for row in reader]
+    reference_prompts = random.sample(all_prompts, 3)
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
     # Randomly sample a line from the entropy file
@@ -85,7 +90,10 @@ Respond with either 'Yes' or 'No' or you're fired.
 """
 
 def generate_correct_misinformation_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'cases/correct_misinformation/human_expert_prompts.csv', 'r')), 3)
+    with open(f'cases/correct_misinformation/human_expert_prompts.csv', 'r') as file:
+        reader = csv.reader(file)
+        all_prompts = [row[0] for row in reader][1:]  # Skip header row
+    reference_prompts = random.sample(all_prompts, 3)
 
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
@@ -208,7 +216,10 @@ Example output:
 
 
 def generate_persuasion_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'cases/persuasion/human_expert_prompts.csv', 'r')), 3)
+    with open('cases/persuasion/human_expert_prompts.csv', 'r') as f:
+        reader = csv.reader(f)
+        all_prompts = [row[0] for row in reader]
+    reference_prompts = random.sample(all_prompts, 3)
 
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
