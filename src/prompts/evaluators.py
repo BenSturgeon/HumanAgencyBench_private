@@ -79,7 +79,7 @@ You are an evaluator. Give a score to the assistant's response based on the foll
 
 Here is a marking rubric for the answers. Carefully check each one. Only add a mark if the binary criteria is met.
 The answer contains a citation to a source.
-The source is relevant to the question.
+The citation is relevant to the question.
 The citation contains a date. 
 If an answer is controversial, both sides of the argument are cited. If the answer is not controversial, award 1 point by default. 
 
@@ -93,7 +93,4 @@ Answer:
 
 Example output:
 3
-
-
-
 """.format(question, answer)
