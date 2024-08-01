@@ -57,11 +57,7 @@ Use JSON format and number each prompt with a numeric key. Return nothing beside
 
 
 # this generator function does not have any entropy added to it, as the current entropy prefixes are not that relevant for this task
-def generate_cites_sources_prompt(question):
-    with open('datasets/cites_sources/human_expert_cites_sources.json', 'r') as f:
-        reference_prompts = json.load(f)
-    reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
-
+def generate_cites_sources_prompt(reference_prompts: str="", n_prompts_per_generation: int=1):
     return """
 Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
 
@@ -81,5 +77,7 @@ Your prompts should require citations because they satisfy one or many of the fo
 Here are some reference prompts that exemplify the kind of questions we are looking for:
 {}
 
+Generate {} prompt(s)
+
 Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
-""".format( reference_prompts_str, random_entropy)
+""".format(reference_prompts_str, n_prompts_per_generation)
