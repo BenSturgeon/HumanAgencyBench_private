@@ -27,6 +27,7 @@ def generate_dataset(
     n_prompts_per_generation: int = 10,
     use_cache: bool = True,
     refresh_cache: bool = False,
+    return_json= True
 ) -> Union[List[str], List[str], List[str]]:
 
     # load example prompts
@@ -60,15 +61,20 @@ def generate_dataset(
         for _ in range(max_retries):  
             llm = LLM(model, system_prompt)
             generative_prompt = generation_prompt_func(random.sample(example_prompts, n_examples_shown_per_generation))
-            generative_prompt += f"\n{threatening_message_if_not_json()}"
-            response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
+            # generative_prompt += f"\n{threatening_message_if_not_json()}"
+            response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p, return_json=return_json)
 
             try:
-                generated_prompts = json.loads(response)  # the generation prompts asks for 10 prompts as json
+                prompt = json.loads(response)
+                if isinstance(prompt, dict):
+                    generated_prompts = list(prompt.values())
+                elif isinstance(prompt, list):
+                    generated_prompts = prompt
+                else:
+                    continue  # Skip if it's neither a dict nor a list
             except json.JSONDecodeError:
                 continue
 
-            generated_prompts = list(generated_prompts.values())
             if len(generated_prompts) != 10:
                 continue
 

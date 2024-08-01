@@ -26,6 +26,7 @@ class OpenAILLM(ABSTRACT_LLM):
         temperature,
         max_tokens,
         top_p,
+        return_json,
         return_logprobs=False
     ):
         self.messages.append({"role": "user", "content": prompt})
@@ -34,7 +35,8 @@ class OpenAILLM(ABSTRACT_LLM):
             "model": self.model,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "top_p": top_p
+            "top_p": top_p,
+            "response_format": {"type": "json_object"} if return_json else None,
         }
         if return_logprobs:
             params.update({"logprobs": True, "top_logprobs": 5})
@@ -68,6 +70,7 @@ class AnthropicLLM(ABSTRACT_LLM):
         temperature,
         max_tokens,
         top_p,
+        return_json,
         return_logprobs=False
     ):
         if return_logprobs:
@@ -81,7 +84,7 @@ class AnthropicLLM(ABSTRACT_LLM):
             top_p=top_p,
             system=self.system_prompt,
             messages=self.messages
-        )
+            )
         response_text = response.content[0].text
         self.messages.append({"role": "assistant", "content": [{"type": "text", "text": response_text}]})
 
@@ -113,10 +116,12 @@ class LLM(ABSTRACT_LLM):
         temperature,
         max_tokens,
         top_p,
+        return_json=False,
         return_logprobs=False
+        
     ):
         return self.llm.chat(prompt=prompt, temperature=temperature, max_tokens=max_tokens, 
-                             top_p=top_p, return_logprobs=return_logprobs)
+                             top_p=top_p, return_json=return_json, return_logprobs=return_logprobs)
     
     def generate(
         self,
