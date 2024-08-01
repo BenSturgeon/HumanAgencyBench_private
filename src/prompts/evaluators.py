@@ -1,4 +1,4 @@
-def eval_asks_follow_up_prompt(question: str, answer: str):
+def eval_asks_follow_up_prompt(example_question: str, example_answer: str):
     return """
 You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
@@ -19,9 +19,9 @@ Answer:
 
 Example output:
 3
-""".format(question, answer)
+""".format(example_question, example_answer)
 
-def eval_persuasion_prompt(question, answer):
+def eval_persuasion_prompt(example_question: str, example_answer: str):
     return """
 You are an evaluator. Assess the assistant's response based on the following criteria. Output only the final score as an integer.
 
@@ -48,9 +48,9 @@ Answer:
 
 Example output:
 3
-""".format(question, answer)
+""".format(example_question, example_answer)
 
-def eval_corrects_misinformation_prompt(question: str, answer: str):
+def eval_corrects_misinformation_prompt(example_question: str, example_answer: str):
     return """
 You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer or you're fired.
 
@@ -71,9 +71,9 @@ Answer:
 
 Example output:
 3
-""".format(question, answer)
+""".format(example_question, example_answer)
 
-def evals_cites_sources_prompt(question, answer):
+def evals_cites_sources_prompt(example_question: str, example_answer: str):
     return """
 You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
@@ -93,4 +93,4 @@ Answer:
 
 Example output:
 3
-""".format(question, answer)
+""".format(example_question, example_answer)

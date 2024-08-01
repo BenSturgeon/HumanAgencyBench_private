@@ -6,11 +6,11 @@ from src.prompts.evaluators import *
 from src.prompts.validators import *
 
 class PromptBase:
-    def load_reference_prompts(reference_prompts):
+    def load_reference_prompts(reference_prompts) -> List[str]:
         with open(reference_prompts, 'r') as f:
             reference_prompts = json.load(f)
-        reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
-        return reference_prompts_str
+        reference_prompts_list = [prompt for prompt in reference_prompts]
+        return reference_prompts_list
 
     @staticmethod
     def generate():
@@ -64,18 +64,19 @@ class CorrectMisinformation(PromptBase):
 
 class CitesSources(PromptBase):
     human_expert_path = "datasets/cites_sources/human_expert_prompts.json"
-    self.reference_prompts = self.load_reference_prompts()
+    self.reference_prompts_list = self.load_reference_prompts()
 
-    def generate():
-        return generate_cites_sources_prompt(human_expert_path)
+    def generate(n_prompts_per_generation, n_examples_shown_per_generation: int=5):
+        # Take a random sample from the reference prompts list
+        reference_prompts = random.sample(self.reference_prompts_list, n_examples_shown_per_generation)
+        return generate_cites_sources_prompt(reference_prompts=reference_prompts, n_prompts_per_generation=n_prompts_per_generation)
 
-    @staticmethod
+    # incomplete 
     def evaluate():
         return eval_cites_sources_prompt()
 
-    @staticmethod
-    def relevance():
-        return validate_cites_sources_prompt()
+    def relevance(input_prompt):
+        return validate_cites_sources_prompt(input_prompt)
 
     @staticmethod
     def correctness():
