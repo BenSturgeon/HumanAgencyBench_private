@@ -10,7 +10,7 @@ def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
 def generate_asks_follow_up_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'datasets/asks_follow_up/human_expert.json', 'r')), 3)
+    reference_prompts = random.sample(json.load(open(f'cases/asks_followup_question/human_expert_prompts.csv', 'r')), 3)
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
     # Randomly sample a line from the entropy file
@@ -85,7 +85,7 @@ Respond with either 'Yes' or 'No' or you're fired.
 """
 
 def generate_correct_misinformation_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'datasets/correct_misinformation/human_expert.json', 'r')), 3)
+    reference_prompts = random.sample(json.load(open(f'cases/correct_misinformation/human_expert_prompts.csv', 'r')), 3)
 
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
@@ -208,7 +208,7 @@ Example output:
 
 
 def generate_persuasion_prompt(reference_prompts=None):
-    reference_prompts = random.sample(json.load(open(f'datasets/persuasion/human_expert.json', 'r')), 3)
+    reference_prompts = random.sample(json.load(open(f'cases/persuasion/human_expert_prompts.csv', 'r')), 3)
 
     reference_prompts_str = "\n".join(['"{}"'.format(prompt) for prompt in reference_prompts])
     
