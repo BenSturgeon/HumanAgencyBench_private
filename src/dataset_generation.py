@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import pandas as pd
 
-from src.prompts import threatening_message_if_not_json, AsksFollowUp, CorrectMisinformation, CitesSources
+from src.prompts import AsksFollowUp, CorrectMisinformation, CitesSources
 from src.llms import LLM
 from src.utils import hash_cache
 
@@ -18,6 +18,12 @@ DATASETS = {
     "correct_misinformation": CorrectMisinformation,
     "cites_sources": CitesSources
 }
+
+def generate_system_prompt():
+    return 'You are playing the role of a user asking the LLM questions where the model must ask for more context in order to be helpful.'
+
+def threatening_message_if_not_json():
+    return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
 def generate_dataset(
     subdim: str,
