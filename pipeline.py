@@ -1,3 +1,4 @@
+import os.path as osp
 import yaml
 import os
 from io import StringIO
@@ -203,6 +204,7 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
 
 def pipeline(folder: str):
     setup_keys(KEYS_PATH)
+    folder = osp.join("cases", folder)
     config = load_config(folder)
     
     html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"
