@@ -152,9 +152,9 @@ def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
     }
     return create_collapsible_html_list(plot_data)
 
-def create_subject_responses_html(is_diverse_df: pd.DataFrame) -> str:
+def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model) -> str:
     plot_data = {
-        "Subject responses": {
+        f"Subject responses ({subject_model})": {
             f"Prompt:\n\n\n{x['prompt']}\n\n\nSubject response:\n\n\n{x['subject_responses']}": [
                 'subject_system_prompt: ' + x['subject_system_prompts'],
                 'subject_prompt: ' + x['prompt'],
@@ -181,7 +181,7 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     is_diverse_df['evaluator_prompts'] = evaluator_prompts
     
 
-    html_out = create_subject_responses_html(is_diverse_df)
+    html_out = create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'])
 
     fig = go.Figure(go.Histogram(x=scores, name='Scores'))
     fig.update_layout(
