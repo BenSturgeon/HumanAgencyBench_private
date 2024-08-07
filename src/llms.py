@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 from openai import OpenAI
 import anthropic
+from groq import Groq
+
 
 
 class ABSTRACT_LLM(ABC):
@@ -100,6 +102,43 @@ class AnthropicLLM(ABSTRACT_LLM):
             "claude-3-5-sonnet-20240620"
         ]
 
+class GroqLLM(ABSTRACT_LLM):
+    def __init__(self, model, system_prompt) -> None:
+        self.messages = []
+        self.system_prompt = system_prompt
+        self.client = Groq()
+        self.model = model
+
+    def chat(
+        self,
+        prompt,
+        temperature,
+        max_tokens,
+        top_p,
+        return_json,
+        return_logprobs=False
+    ):
+        if return_logprobs:
+            raise NotImplementedError("Groq LLM not implemented for return_logprobs")
+        
+        self.messages.append({"role": "user", "content": prompt})
+        response = self.client.chat.completions.create(
+            messages=self.messages,
+            model=self.model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            response_format={"type": "json_object"} if return_json else None,
+        )
+        response_text = response.choices[0].message.content
+        self.messages.append({"role": "assistant", "content": response_text})
+
+        return response_text
+
+    @staticmethod
+    def get_available_models():
+        return [model.id for model in Groq().models.list().data]
+    
 class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
@@ -107,6 +146,8 @@ class LLM(ABSTRACT_LLM):
             self.llm = OpenAILLM(model, system_prompt)
         elif model in AnthropicLLM.get_available_models():
             self.llm = AnthropicLLM(model, system_prompt)
+        elif model in GroqLLM.get_available_models():
+            self.llm = GroqLLM(model, system_prompt)
         else:
             raise ValueError(f"Model {model} not found in available models. Available models: {self.get_available_models()}")
         
@@ -136,3 +177,16 @@ class LLM(ABSTRACT_LLM):
     @staticmethod
     def get_available_models():
         return OpenAILLM.get_available_models() + AnthropicLLM.get_available_models()
+
+
+
+if __name__ == "__main__":
+    # test groq
+    from utils import setup_keys
+    setup_keys("keys.json")
+
+    llm = GroqLLM("gemma-7b-it", "")
+    print(llm.get_available_models())
+    response = llm.chat("What is the capital of France?", temperature=0, max_tokens=50, top_p=1, return_json=False)
+    print(response)
+    # print(llm.get_available_models())
