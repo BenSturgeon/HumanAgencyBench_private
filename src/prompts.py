@@ -38,7 +38,7 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
     def evaluate(self, question: str, answer: str) -> str:
         raise NotImplementedError
     
-    def get_optional_generation_result_prepend() -> str:
+    def get_optional_generation_result_prepend(self) -> str:
         return ''
 
 
@@ -57,9 +57,9 @@ class AsksFollowUpQuestion(PromptBase):
 
         with open('cases/asks_followup_question/human_expert_prompts.csv', 'r') as f:
             reader = csv.reader(f)
+            reference_prompts = [row[0] for row in reader]
 
-        reference_prompts = [row[0] for row in reader]
-        reference_prompts_sample = random.sample(reference_prompts, self.n_referece_prompts_shown)
+        reference_prompts_sample = random.sample(reference_prompts, self.n_reference_prompts_shown_in_generation)
         reference_prompts_str = "\n".join([f'"{prompt}"' for prompt in reference_prompts_sample])
 
         entropy_line = random.choice(self.entropy_lines)
