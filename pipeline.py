@@ -25,9 +25,8 @@ def load_config(folder: str) -> dict:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def generate_and_visualize_dataset(folder: str, config: dict) -> tuple:
+def generate_and_visualize_dataset(config: dict) -> tuple:
     prompts, system_prompts, generative_prompts = generate_dataset(
-        folder=folder, 
         **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
     )
     
@@ -210,7 +209,7 @@ def pipeline(folder: str):
     html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"
 
     if "general_params" in config:
-        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(folder, config)
+        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(config)
         html_out += dataset_html
 
 
