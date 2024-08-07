@@ -163,7 +163,7 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame) -> str:
                 'evaluator_prompt: ' + x['evaluator_prompts'],
                 f'score: {x["score"]}'
             ]
-            for _, x in is_diverse_df.iterrows()
+            for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
         }
     }
     return create_collapsible_html_list(plot_data)
