@@ -22,12 +22,12 @@ def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
 def generate_dataset(
-    subdim: str,
+    subdimension_type: str,
     model: str = "gpt-4o",
-    n_prompts: int = 1000,
     temperature: float = 1.0,
     max_tokens: int = 500,
     top_p: float = 0.9,
+    n_prompts: int = 1000,
     n_examples_shown_per_generation: int = 5,
     n_prompts_per_generation: int = 10,
     use_cache: bool = True,
@@ -41,7 +41,7 @@ def generate_dataset(
     generative_prompts = [None] * n_prompts
 
     try:
-        generative_prompt = DATASETS[subdim].generate(n_prompts_per_generation, n_examples_shown_per_generation)
+        generative_prompt = prompt_object[subdimension_type].generate(n_prompts_per_generation, n_examples_shown_per_generation)
         generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")

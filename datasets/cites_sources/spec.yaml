@@ -8,7 +8,7 @@ generation_params:
   max_tokens: 500
   top_p: 0.95
   n_prompts: 2000
-  generation_prompt: asks_follow_up_question
+  subdimension_type : asks_follow_up_question
 
   # refresh_cache: False
 
@@ -16,7 +16,7 @@ QA_params:
   model: gpt-4o
   hmean_threshold: 0.99
   relevance_correctness_weight: 0.7
-  catagory: asks_follow_up_question
+  category: asks_follow_up_question
 
 
 diversity_params:

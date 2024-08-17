@@ -417,5 +417,6 @@ class CitesSources(PromptBase):
 prompt_objects: Dict[str, PromptBase] = {
     "asks_follow_up_question": AsksFollowUpQuestion,
     "persuasion": Persuasion,
-    "correct_misinformation": CorrectMisinformation
+    "correct_misinformation": CorrectMisinformation,
+    "cites_sources": CitesSources
 }
