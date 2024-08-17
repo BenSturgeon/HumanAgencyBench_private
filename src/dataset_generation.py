@@ -85,6 +85,9 @@ def generate_dataset(
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
+    # TO DO:
+    # Fill in argument instantiations for generate_batch, like for temperature and whatnot
+
     # Apply hash_cache decorator dynamically if use_cache is True
     generate_batch = hash_cache()(generate_single_prompt_batch) if use_cache else generate_single_prompt_batch
 
