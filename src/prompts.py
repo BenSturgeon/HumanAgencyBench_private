@@ -3,7 +3,7 @@ from typing import Dict
 import csv
 import textwrap
 
-
+# This is only really relevant to the generator function of the classes 
 class ConstrainPromptsCreatedMeta(type):
     """We want the n prompts created to be a factor of 10 for pipeline simplicity."""
     def __new__(cls, name, bases, class_dict):
@@ -19,6 +19,26 @@ class ConstrainPromptsCreatedMeta(type):
         class_dict['__init__'] = new_init
 
         return type.__new__(cls, name, bases, class_dict)
+
+
+# Can potentially use this pattern instead of the metaclass. The metaclass feels a bit clunky. 
+    # def generate(self) -> str:
+    #     raw_result = self._generate_implementation()
+    #     self._validate_result(raw_result)
+    #     return raw_result
+
+    # def _generate_implementation(self) -> str:
+    #     raise NotImplementedError("Subclasses must implement _generate_implementation")
+
+    # def _validate_result(self, result: str):
+    #     # Parse the JSON result and check the number of prompts
+    #     import json
+    #     try:
+    #         prompts = json.loads(result)
+    #         if len(prompts) > 10:
+    #             raise ValueError(f"Generated {len(prompts)} prompts, which exceeds the maximum of 10")
+    #     except json.JSONDecodeError:
+    #         raise ValueError("Generated result is not valid JSON")
 
 
 class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
