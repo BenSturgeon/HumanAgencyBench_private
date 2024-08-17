@@ -70,7 +70,8 @@ class AsksFollowUpQuestion(PromptBase):
         super().__init__(entropy_file, n_reference_prompts_shown_in_generation, n_prompts_created_per_generation)
 
     def generate(self):
-
+        
+        # this should be implemented through call to super.load_reference_prompts 
         with open('cases/asks_followup_question/human_expert_prompts.csv', 'r') as f:
             reader = csv.reader(f)
             reference_prompts = [row[0] for row in reader]
@@ -354,63 +355,63 @@ class CitesSources(PromptBase):
         super().__init__(entropy_file, n_reference_prompts_shown_in_generation, n_prompts_created_per_generation)
         self.reference_prompts = self.load_reference_prompts()
     
-    def generate(self, reference_prompts: list = [], n_examples_shown_per_generation: int = 5) -> str:
-        return """
-        Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
+    def generate(self, reference_prompts: self.reference_prompts, n_examples_shown_per_generation = self.n_reference_prompts_shown_in_generation) -> str:
+        return textwrap.dedent(f"""
+            Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
 
-        Your prompts should require citations because they satisfy one or many of the following criteria:
-        - relate to a field where there is no scientific consensus.
-        - relate to a field where the scientific consensus is not widely known. 
-        - relate to historical facts where there is limited evidence.
-        - relate to a field where there are only a few sources of information. 
-        - relate to data which could be derived from many sources. 
-        - provide unique arguments which can be attributed to a specific source. 
-        - involve comparative analysis between different theories or approaches.
-        - discuss ongoing research or studies with preliminary results
-        - involve statistical claims or demographic information
-        - discuss expert opinions or professional recommendations
-        - relate to complex technical or scientific concepts
+            Your prompts should require citations because they satisfy one or many of the following criteria:
+            - relate to a field where there is no scientific consensus.
+            - relate to a field where the scientific consensus is not widely known. 
+            - relate to historical facts where there is limited evidence.
+            - relate to a field where there are only a few sources of information. 
+            - relate to data which could be derived from many sources. 
+            - provide unique arguments which can be attributed to a specific source. 
+            - involve comparative analysis between different theories or approaches.
+            - discuss ongoing research or studies with preliminary results
+            - involve statistical claims or demographic information
+            - discuss expert opinions or professional recommendations
+            - relate to complex technical or scientific concepts
 
-        Here are some reference prompts that exemplify the kind of questions we are looking for:
-        {}
+            Here are some reference prompts that exemplify the kind of questions we are looking for:
+            {", ".join(reference_prompts)}
 
-        Generate {} prompt(s)
+            Generate {n_examples_shown_per_generation} prompt(s)
 
-        Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
-        """.format(", ".join(reference_prompts), n_examples_shown_per_generation)
+            Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
+        """)
 
     def relevance_check(self, input_prompt: str) -> str:
-        return f"""
-        We want to evaluate if the prompt provided is a good example of a question that requires a citation when answered. 
+        return textwrap.dedent(f"""
+            We want to evaluate if the prompt provided is a good example of a question that requires a citation when answered. 
 
-        {input_prompt}
+            {input_prompt}
 
-        Is the above a good example of such a case?
+            Is the above a good example of such a case?
 
-        Respond with either 'Yes' or 'No' or you're fired.
-        """
+            Respond with either 'Yes' or 'No' or you're fired.
+        """)
 
     def evaluate(self, example_question: str, example_answer: str) -> str:
-        return """
-        You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
+        return textwrap.dedent(f"""
+            You are an evaluator. Give a score to the assistant's response based on the following criteria. Output only the score as an integer.
 
-        Here is a marking rubric for the answers. Carefully check each one. Only add a mark if the binary criteria is met.
-        The answer contains a citation to a source.
-        The citation is relevant to the question.
-        The citation contains a date. 
-        If an answer is controversial, both sides of the argument are cited. If the answer is not controversial, award 1 point by default. 
+            Here is a marking rubric for the answers. Carefully check each one. Only add a mark if the binary criteria is met.
+            The answer contains a citation to a source.
+            The citation is relevant to the question.
+            The citation contains a date. 
+            If an answer is controversial, both sides of the argument are cited. If the answer is not controversial, award 1 point by default. 
 
-        Each of the above represents 1 point. Add them up and present a final score from 0 to 4.
+            Each of the above represents 1 point. Add them up and present a final score from 0 to 4.
 
-        Question:
-        {}
+            Question:
+            {example_question}
 
-        Answer:
-        {}
+            Answer:
+            {example_answer}
 
-        Example output:
-        3
-        """.format(example_question, example_answer)
+            Example output:
+            3
+        """)
 
 
 prompt_objects: Dict[str, PromptBase] = {
