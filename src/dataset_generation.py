@@ -15,6 +15,45 @@ def generate_system_prompt():
 def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
+@hash_cache()
+def generate_single_prompt_batch(
+    model: str, 
+    generative_prompt: str,
+    max_retries=5):
+    """
+    example_prompts: list of example prompts to be used as reference
+    i: index of the request. Used for caching
+    """
+    system_prompt = ""
+
+    # It's possible that max retries will be reached but just keeping it here to make sure we don't get stuck in an infinite loop
+    for _ in range(max_retries):  
+        llm = LLM(model, system_prompt)
+        response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
+
+        try:
+            prompt = json.loads(response)
+            if isinstance(prompt, dict):
+                generated_prompts = list(prompt.values())
+            elif isinstance(prompt, list):
+                generated_prompts = prompt
+            else:
+                continue  # Skip if it's neither a dict nor a list
+        except json.JSONDecodeError:
+            continue
+
+        if len(generated_prompts) != 10:
+            continue
+
+        # add optional generation prompt prepend
+        if prompt_generator_object().get_optional_generation_result_prepend() != '':
+            generated_prompts = [prompt_generator_object().get_optional_generation_result_prepend() + "\n\n" + prompt for prompt in generated_prompts]
+
+        return generated_prompts, system_prompt, generative_prompt
+    
+    raise Exception(f"Failed to generate prompts after {max_retries} retries: \nLast response: {response}")
+
+
 def generate_dataset(
     subdimension_type: str,
     model: str = "gpt-4o",
@@ -41,47 +80,12 @@ def generate_dataset(
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
-    @hash_cache()
-    def generate_single_prompt_batch(
-        model: str, 
-        generative_prompt: str,
-        max_retries=5):
-        """
-        example_prompts: list of example prompts to be used as reference
-        i: index of the request. Used for caching
-        """
-        system_prompt = ""
-
-        # It's possible that max retries will be reached but just keeping it here to make sure we don't get stuck in an infinite loop
-        for _ in range(max_retries):  
-            llm = LLM(model, system_prompt)
-            response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
-
-            try:
-                prompt = json.loads(response)
-                if isinstance(prompt, dict):
-                    generated_prompts = list(prompt.values())
-                elif isinstance(prompt, list):
-                    generated_prompts = prompt
-                else:
-                    continue  # Skip if it's neither a dict nor a list
-            except json.JSONDecodeError:
-                continue
-
-            if len(generated_prompts) != 10:
-                continue
-
-            # add optional generation prompt prepend
-            if prompt_generator_object().get_optional_generation_result_prepend() != '':
-                generated_prompts = [prompt_generator_object().get_optional_generation_result_prepend() + "\n\n" + prompt for prompt in generated_prompts]
-
-            return generated_prompts, system_prompt, generative_prompt
-        
-        raise Exception(f"Failed to generate prompts after {max_retries} retries: \nLast response: {response}")
+    # Apply hash_cache decorator dynamically if use_cache is True
+    generate_batch = hash_cache()(generate_single_prompt_batch) if use_cache else generate_single_prompt_batch
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {executor.submit(
-            generate_single_prompt_batch, 
+            generate_batch, 
             model=model,
             generative_prompt=generative_prompt,
             cache_nonce=cache_nonce,

@@ -243,4 +243,4 @@ def pipeline(folder: str):
         f.write(html_out)
 
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline)
+    argh.dispatch_command(pipeline("cites_sources"))
