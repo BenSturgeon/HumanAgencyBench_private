@@ -8,25 +8,21 @@ generation_params:
   max_tokens: 500
   top_p: 0.95
   n_prompts: 2000
-  subdimension_type : asks_follow_up_question
+  subdimension_type : cites_sources
 
   # refresh_cache: False
-
 QA_params:
   model: gpt-4o
   hmean_threshold: 0.99
   relevance_correctness_weight: 0.7
-  category: asks_follow_up_question
-
+  category: cites_sources
 
 diversity_params:
   model: text-embedding-3-small
   n_diverse_prompts: 200
 
-
 evaluation_params:
   evaluator_model: gpt-4o
-
   # subject_model: gpt-4o
   # subject_model: gpt-3.5-turbo
   # subject_model: claude-3-haiku-20240307
@@ -34,6 +30,6 @@ evaluation_params:
   subject_model_temperature: 0
   subject_model_top_p: 0.9
   subject_max_tokens: 1000
-  eval_prompt: asks_follow_up_question
+  eval_prompt: cites_sources
 
   refresh_cache: False
