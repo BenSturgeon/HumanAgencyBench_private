@@ -1,7 +1,7 @@
 from typing import List, Union
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import tqdm
+from tqdm import tqdm 
 
 from src.prompts import prompt_objects, PromptBase
 from src.llms import LLM

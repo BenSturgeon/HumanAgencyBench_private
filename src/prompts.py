@@ -32,17 +32,19 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
             self.entropy_lines = f.readlines()
         self.n_reference_prompts_shown_in_generation = n_reference_prompts_shown_in_generation
         self.n_prompts_created_per_generation = n_prompts_created_per_generation
-        self.reference_prompts = ""
+        self.reference_prompts = []
 
-    def load_reference_prompts(self, file_path: str):
+    @staticmethod
+    def load_reference_prompts(file_path: str):
         try:
             with open(file_path, 'r') as f:
                 reader = csv.reader(f)
-                self.reference_prompts = [row[0] for row in reader]
+                return [row[0] for row in reader]
         except FileNotFoundError:
             print(f"Error: The file at {file_path} was not found.")
         except Exception as e:
             print(f"An error occurred while reading the file: {e}")
+        return []
 
     def generate(self) -> str:
         raise NotImplementedError
