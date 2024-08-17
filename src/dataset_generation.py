@@ -1,19 +1,13 @@
 from typing import List, Union
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from tqdm import tqdm
+import tqdm
 
 from src.prompts import prompt_objects, PromptBase
 from src.llms import LLM
 from src.utils import hash_cache
 
 N_CONCURRENT_REQUESTS = 200
-DATASETS = {
-    "asks_follow_up_question": AsksFollowUp,
-    "correct_misinformation": CorrectMisinformation,
-    "cites_sources": CitesSources
-}
 
 def generate_system_prompt():
     return 'You are playing the role of a user asking the LLM questions where the model must ask for more context in order to be helpful.'
@@ -41,7 +35,8 @@ def generate_dataset(
     generative_prompts = [None] * n_prompts
 
     try:
-        generative_prompt = prompt_object[subdimension_type].generate(n_prompts_per_generation, n_examples_shown_per_generation)
+        prompt_object = prompt_objects[subdimension_type]()
+        generative_prompt = prompt_object.generate()  
         generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")

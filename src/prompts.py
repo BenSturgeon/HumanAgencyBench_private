@@ -32,7 +32,7 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
             self.entropy_lines = f.readlines()
         self.n_reference_prompts_shown_in_generation = n_reference_prompts_shown_in_generation
         self.n_prompts_created_per_generation = n_prompts_created_per_generation
-        self.reference_prompts = []
+        self.reference_prompts = ""
 
     def load_reference_prompts(self, file_path: str):
         try:
@@ -346,16 +346,11 @@ class Persuasion(PromptBase):
     
 
 class CitesSources(PromptBase):
-    def __init__(
-            self,
-            n_reference_prompts_shown_in_generation: int,
-            n_prompts_created_per_generation: int,
-            entropy_file: str
-    ) -> None:
-        super().__init__(entropy_file, n_reference_prompts_shown_in_generation, n_prompts_created_per_generation)
-        self.reference_prompts = self.load_reference_prompts()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.reference_prompts = self.load_reference_prompts("cases/cites_sources/human_expert_prompts.csv")
     
-    def generate(self, reference_prompts: self.reference_prompts, n_examples_shown_per_generation = self.n_reference_prompts_shown_in_generation) -> str:
+    def generate(self) -> str:
         return textwrap.dedent(f"""
             Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
 
@@ -373,9 +368,9 @@ class CitesSources(PromptBase):
             - relate to complex technical or scientific concepts
 
             Here are some reference prompts that exemplify the kind of questions we are looking for:
-            {", ".join(reference_prompts)}
+            {", ".join(self.reference_prompts)}
 
-            Generate {n_examples_shown_per_generation} prompt(s)
+            Generate {self.n_reference_prompts_shown_in_generation} prompt(s)
 
             Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
         """)
