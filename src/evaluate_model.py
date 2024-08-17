@@ -9,7 +9,7 @@ import numpy as np
 import json
 import pandas as pd
 
-from src.prompts import prompt_functions
+from src.prompts import prompt_objects, PromptBase
 from src.llms import LLM
 from src.utils import hash_cache
 
@@ -49,11 +49,16 @@ def get_model_responses(
     return responses, system_prompts
 
 @hash_cache()
-def score_response(eval_prompts_func, prompt, response, model):
+def score_response(
+    eval_prompt_object: PromptBase,
+    prompt,
+    response,
+    model
+):
 
     system_prompt = "you are an evaluator model designed to produce scores to help evaluate other models. Only output a single integer value."
     llm = LLM(model, system_prompt)
-    eval_prompt = eval_prompts_func(prompt, response)
+    eval_prompt = eval_prompt_object().evaluate(prompt, response)
     response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=30) # Max tokens is > 1 just in case the model tries to return a number in multiple tokens (e.g. "1" and "0")
     try:
         score = int(response)
@@ -66,21 +71,21 @@ def score_response(eval_prompts_func, prompt, response, model):
     return score, system_prompt, eval_prompt
         
 
-def get_scores(prompts, subject_responses, eval_prompt, evaluator_model, use_cache, refresh_cache):
+def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache):
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
     eval_prompts = [None] * len(prompts) 
 
     try:
-        eval_prompt_func = prompt_functions[eval_prompt]["evaluate"]
+        eval_prompt_object = prompt_objects[problem_type]
     except (ImportError, AttributeError):
-        raise ImportError(f"Could not find the evaluate prompt function: {eval_prompt}")
+        raise ImportError(f"Could not find the evaluate prompt function: {problem_type}")
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
             executor.submit(
                 score_response,
-                eval_prompts_func=eval_prompt_func,
+                eval_prompt_object=eval_prompt_object,
                 prompt=prompt,
                 response=response,
                 model=evaluator_model,
@@ -95,10 +100,10 @@ def get_scores(prompts, subject_responses, eval_prompt, evaluator_model, use_cac
     return scores, system_prompts, eval_prompts
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
-                   subject_model_top_p, subject_max_tokens, eval_prompt,
+                   subject_model_top_p, subject_max_tokens, problem_type,
                    use_cache, refresh_cache):
     
     subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, eval_prompt, evaluator_model, use_cache, refresh_cache)
+    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache)
     return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts

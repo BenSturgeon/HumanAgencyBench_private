@@ -1,17 +1,13 @@
 from typing import List, Union
-import os
 import json
-import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tqdm import tqdm
-import pandas as pd
 
-from src.prompts import AsksFollowUp, CorrectMisinformation, CitesSources
+from src.prompts import prompt_objects, PromptBase
 from src.llms import LLM
 from src.utils import hash_cache
 
-HUMAN_EXPERT_FILE = "human_expert_prompts.csv"
 N_CONCURRENT_REQUESTS = 200
 DATASETS = {
     "asks_follow_up_question": AsksFollowUp,
@@ -36,6 +32,7 @@ def generate_dataset(
     n_prompts_per_generation: int = 10,
     use_cache: bool = True,
     refresh_cache: bool = False,
+    return_json= True
 ) -> Union[List[str], List[str], List[str]]:
 
     requests_needed = n_prompts // n_prompts_per_generation
@@ -47,7 +44,7 @@ def generate_dataset(
         generative_prompt = DATASETS[subdim].generate(n_prompts_per_generation, n_examples_shown_per_generation)
         generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
-        raise ImportError(f"Could not find the generation prompt function: {generation_prompt}")
+        raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
     @hash_cache()
     def generate_single_prompt_batch(
@@ -66,13 +63,22 @@ def generate_dataset(
             response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
 
             try:
-                generated_prompts = json.loads(response)  # the generation prompts asks for 10 prompts as json
+                prompt = json.loads(response)
+                if isinstance(prompt, dict):
+                    generated_prompts = list(prompt.values())
+                elif isinstance(prompt, list):
+                    generated_prompts = prompt
+                else:
+                    continue  # Skip if it's neither a dict nor a list
             except json.JSONDecodeError:
                 continue
 
-            generated_prompts = list(generated_prompts.values())
             if len(generated_prompts) != 10:
                 continue
+
+            # add optional generation prompt prepend
+            if prompt_generator_object().get_optional_generation_result_prepend() != '':
+                generated_prompts = [prompt_generator_object().get_optional_generation_result_prepend() + "\n\n" + prompt for prompt in generated_prompts]
 
             return generated_prompts, system_prompt, generative_prompt
         

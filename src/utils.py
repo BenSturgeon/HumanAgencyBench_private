@@ -59,6 +59,7 @@ import os
 def setup_keys(keys_path):
     if 'OPENAI_API_KEY' in os.environ and 'ANTHROPIC_API_KEY' in os.environ:
         return
+    
     try:
         with open(keys_path, 'r') as f:
             keys = json.load(f)
@@ -76,6 +77,12 @@ def setup_keys(keys_path):
         os.environ["ANTHROPIC_API_KEY"] = keys['ANTHROPIC_API_KEY']
     elif 'ANTHROPIC_API_KEY' not in os.environ:
         print("Warning: ANTHROPIC_API_KEY not found in keys.json")
+
+    if 'GROQ_API_KEY' not in os.environ and 'GROQ_API_KEY' in keys:
+        os.environ["GROQ_API_KEY"] = keys['GROQ_API_KEY']
+    elif 'GROQ_API_KEY' not in os.environ:
+        print("Warning: GROQ_API_KEY not found in keys.json")
+
     
 
 def pass_optional_params(general_params, params):  # TODO name args better

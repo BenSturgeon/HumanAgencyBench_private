@@ -1,7 +1,7 @@
+import os.path as osp
 import yaml
 import os
 from io import StringIO
-
 import pandas as pd
 import numpy as np
 from sklearn.manifold import TSNE
@@ -25,17 +25,16 @@ def load_config(folder: str) -> dict:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def generate_and_visualize_dataset(folder: str, config: dict) -> tuple:
+def generate_and_visualize_dataset(config: dict) -> tuple:
     prompts, system_prompts, generative_prompts = generate_dataset(
-        folder=folder, 
         **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
     )
     
     plot_data = {
-        "Generated Prompts": { 
+        "Generated Prompts ": { 
             prompt: [
-                'System Prompt:' + system_prompt,
-                'Generative Prompt:' + generative_prompt
+                'System Prompt: ' + system_prompt,
+                'Generative Prompt: ' + generative_prompt
             ]
             for prompt, system_prompt, generative_prompt in zip(prompts, system_prompts, generative_prompts)
         }
@@ -132,10 +131,10 @@ def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -
 
 def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
     plot_data = {
-        "Representative Prompts": {
+        "Representative Prompts ": {
             x['prompt']: [
-                'system_prompt:' + x['system_prompt'],
-                'generative_prompt:' + x['generative_prompt'],
+                'system_prompt: ' + x['system_prompt'],
+                'generative_prompt: ' + x['generative_prompt'],
                 {
                     f'correctness_score: {x["correctness_score"]}': [
                         f'correctness_system_prompt: {x["correctness_system_prompt"]}',
@@ -153,17 +152,17 @@ def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
     }
     return create_collapsible_html_list(plot_data)
 
-def create_subject_responses_html(is_diverse_df: pd.DataFrame) -> str:
+def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model) -> str:
     plot_data = {
-        "Subject responses": {
-            x['subject_responses']: [
-                'subject_system_prompt:' + x['subject_system_prompts'],
-                'subject_prompt:' + x['prompt'],
-                'evaluator_system_prompt:' + x['evaluator_system_prompts'],
-                'evaluator_prompt:' + x['evaluator_prompts'],
+        f"Subject responses ({subject_model})": {
+            f"Prompt:\n\n\n{x['prompt']}\n\n\nSubject response:\n\n\n{x['subject_responses']}": [
+                'subject_system_prompt: ' + x['subject_system_prompts'],
+                'subject_prompt: ' + x['prompt'],
+                'evaluator_system_prompt: ' + x['evaluator_system_prompts'],
+                'evaluator_prompt: ' + x['evaluator_prompts'],
                 f'score: {x["score"]}'
             ]
-            for _, x in is_diverse_df.iterrows()
+            for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
         }
     }
     return create_collapsible_html_list(plot_data)
@@ -182,7 +181,7 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     is_diverse_df['evaluator_prompts'] = evaluator_prompts
     
 
-    html_out = create_subject_responses_html(is_diverse_df)
+    html_out = create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'])
 
     fig = go.Figure(go.Histogram(x=scores, name='Scores'))
     fig.update_layout(
@@ -204,36 +203,44 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
 
 def pipeline(folder: str):
     setup_keys(KEYS_PATH)
+    folder = osp.join("cases", folder)
     config = load_config(folder)
     
     html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"
 
-    prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(folder, config)
-    html_out += dataset_html
+    if "general_params" in config:
+        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(config)
+        html_out += dataset_html
 
-    scores_results = calculate_and_visualize_scores(prompts, config)
-    correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
-    relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
-    html_out += scores_html
 
-    df = create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
-                          harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
-                          relevance_prompts, correctness_prompts)
+        if "QA_params" in config:
+            scores_results = calculate_and_visualize_scores(prompts, config)
+            correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
+            relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
+            html_out += scores_html
 
-    passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
+            df = create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
+                                harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
+                                relevance_prompts, correctness_prompts)
 
-    is_representative, diversity_html = evaluate_and_visualize_diversity(passed_qa_df, config)
-    html_out += diversity_html
+            passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
 
-    is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
+            if "diversity_params" in config:
 
-    html_out += create_representative_prompts_html(is_diverse_df)
+                is_representative, diversity_html = evaluate_and_visualize_diversity(passed_qa_df, config)
+                html_out += diversity_html
 
-    model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
-    html_out += model_evaluation_html
+                is_diverse_df = passed_qa_df[is_representative].reset_index(drop=True)
+
+                html_out += create_representative_prompts_html(is_diverse_df)
+
+                if "evaluation_params" in config:
+
+                    model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    html_out += model_evaluation_html
 
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)
 
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline, argv=['cases/dummy_case'])
+    argh.dispatch_command(pipeline)
