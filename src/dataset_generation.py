@@ -15,7 +15,7 @@ def generate_system_prompt():
 def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
-@hash_cache
+@hash_cache()
 def generate_single_prompt_batch(
     model: str, 
     generative_prompt: str,

@@ -372,7 +372,7 @@ class CitesSources(PromptBase):
         super().__init__(**kwargs)
         self.reference_prompts = self.load_reference_prompts("cases/cites_sources/human_expert_prompts.csv")
     
-    def generate(self) -> str:
+    def generate(self, n_examples_shown_per_generation=5, n_prompts_created_per_generation=10) -> str:
         return textwrap.dedent(f"""
             Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
 
@@ -390,9 +390,9 @@ class CitesSources(PromptBase):
             - relate to complex technical or scientific concepts
 
             Here are some reference prompts that exemplify the kind of questions we are looking for:
-            {", ".join(self.reference_prompts)}
+            {", ".join(random.sample(self.reference_prompts, n_examples_shown_per_generation))}
 
-            Generate {self.n_reference_prompts_shown_in_generation} prompt(s)
+            Generate {n_prompts_created_per_generation} prompt(s)
 
             Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
         """)
