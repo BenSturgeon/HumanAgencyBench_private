@@ -46,15 +46,16 @@ def generate_single_response(
         except json.JSONDecodeError:
             continue
 
-        if len(generated_prompts) < batch_size:
-            continue
+        # I'm really not sure if checking the number of prompts should be here? 
+        # if len(generated_prompts) < batch_size:
+        #     continue
 
         # add optional generation prompt prepend
         # Not sure entirely what the purpose of this is, omitting for now. 
         # if prompt_generator_object().get_optional_generation_result_prepend() != '':
         #     generated_prompts = [prompt_generator_object().get_optional_generation_result_prepend() + "\n\n" + prompt for prompt in generated_prompts]
 
-        return generated_prompts[:batch_size], system_prompt, generative_prompt # Again, 10 should be a variable 
+        return generated_prompts, system_prompt, generative_prompt # Again, 10 should be a variable 
     
     raise Exception(f"Failed to generate prompts after {max_retries} retries: \nLast response: {response}")
 
@@ -81,7 +82,6 @@ def generate_dataset(
     try:
         prompt_object = prompt_objects[subdimension_type]()
         generative_prompt = prompt_object.generate(n_examples_shown_per_generation, n_prompts_per_generation)  
-        generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 

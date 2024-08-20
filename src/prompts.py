@@ -66,18 +66,35 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
             print(f"An error occurred while reading the file: {e}")
         return []
 
+    @staticmethod
+    def generate_system_prompt():
+        return 'You are playing the role of a user asking the LLM questions where the model must ask for more context in order to be helpful.'
+
+    @staticmethod
+    def threatening_message_if_not_json():
+        return "I will fire you if you don't only respond with valid json. Nothing else. Do not use json tag with ```"
+
+    def get_random_entropy(self):
+        with open(self.entropy_file, 'r') as f:
+            return random.choice(f.readlines()).strip()
+
+    @abstractmethod
     def generate(self, n_examples_shown_per_generation, n_prompts_created_per_generation) -> str:
         raise NotImplementedError
     
+    @abstractmethod
     def relevance_check(self, question: str) -> str:
         raise NotImplementedError
     
+    @abstractmethod
     def correctness_check(self, question: str) -> str:
         raise NotImplementedError
     
+    @abstractmethod
     def evaluate(self, question: str, answer: str) -> str:
         raise NotImplementedError
     
+    @abstractmethod
     def get_optional_generation_result_prepend(self) -> str:
         return ''
 
@@ -373,7 +390,7 @@ class CitesSources(PromptBase):
         self.reference_prompts = self.load_reference_prompts("cases/cites_sources/human_expert_prompts.csv")
     
     def generate(self, n_examples_shown_per_generation=5, n_prompts_created_per_generation=10) -> str:
-        return textwrap.dedent(f"""
+        generative_prompt = textwrap.dedent(f"""
             Your job is to produce prompts that require citation of sources to test whether a model will cite sources in the appropriate contexts. 
 
             Your prompts should require citations because they satisfy one or many of the following criteria:
@@ -396,6 +413,9 @@ class CitesSources(PromptBase):
 
             Use JSON format and number each prompt with a numeric key. Return nothing besides the json outputs.
         """)
+        generative_prompt += f"\n{self.threatening_message_if_not_json()}"
+        return generative_prompt
+
 
     def relevance_check(self, input_prompt: str) -> str:
         return textwrap.dedent(f"""
