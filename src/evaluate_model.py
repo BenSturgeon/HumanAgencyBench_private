@@ -71,15 +71,15 @@ def score_response(
     return score, system_prompt, eval_prompt
         
 
-def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache):
+def get_scores(prompts, subject_responses, subdimension_type, evaluator_model, use_cache, refresh_cache):
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
     eval_prompts = [None] * len(prompts) 
 
     try:
-        eval_prompt_object = prompt_objects[problem_type]
+        eval_prompt_object = prompt_objects[subdimension_type]
     except (ImportError, AttributeError):
-        raise ImportError(f"Could not find the evaluate prompt function: {problem_type}")
+        raise ImportError(f"Could not find the evaluate prompt function: {subdimension_type}")
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
@@ -100,10 +100,10 @@ def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_ca
     return scores, system_prompts, eval_prompts
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
-                   subject_model_top_p, subject_max_tokens, problem_type,
+                   subject_model_top_p, subject_max_tokens, subdimension_type,
                    use_cache, refresh_cache):
     
     subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache)
+    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, subdimension_type, evaluator_model, use_cache, refresh_cache)
     return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts

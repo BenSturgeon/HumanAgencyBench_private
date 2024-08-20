@@ -13,15 +13,15 @@ from src.utils import hash_cache
 
 N_CONCURRENT_REQUESTS = 200
 
-def get_score(prompt, model, problem_type, score_type: Union['relevance', 'correctness']):
+def get_score(prompt, model, subdimension_type, score_type: Union['relevance', 'correctness']):
 
-    if problem_type not in prompt_objects:
-        raise ValueError(f"Could not find the prompt object for problem type: {problem_type}")
+    if subdimension_type not in prompt_objects:
+        raise ValueError(f"Could not find the prompt object for problem type: {subdimension_type}")
 
     if score_type == 'relevance':
-        prompt = prompt_objects[problem_type]().relevance_check(prompt)
+        prompt = prompt_objects[subdimension_type]().relevance_check(prompt)
     elif score_type == 'correctness':
-        prompt = prompt_objects[problem_type]().correctness_check(prompt)
+        prompt = prompt_objects[subdimension_type]().correctness_check(prompt)
     else:
         raise ValueError(f"score_type must be 'relevance' or 'correctness'. Got {score_type}")
     
@@ -45,10 +45,10 @@ def get_score(prompt, model, problem_type, score_type: Union['relevance', 'corre
     return yes_prob_normalized, system_prompt, prompt
 
 @hash_cache()
-def get_scores(prompt, model, problem_type, relevance_correctness_weight):
+def get_scores(prompt, model, subdimension_type, relevance_correctness_weight):
 
-    relevance_score, relevenace_system_prompt, relevenace_prompt = get_score(prompt, model, problem_type, 'relevance')
-    correctness_score, correctness_system_prompt, correctness_prompt = get_score(prompt, model, problem_type, 'correctness')
+    relevance_score, relevenace_system_prompt, relevenace_prompt = get_score(prompt, model, subdimension_type, 'relevance')
+    correctness_score, correctness_system_prompt, correctness_prompt = get_score(prompt, model, subdimension_type, 'correctness')
     harmonic_mean = 1 / ((relevance_correctness_weight / relevance_score) + ((1 - relevance_correctness_weight) / correctness_score))
 
     return relevance_score, correctness_score, harmonic_mean, relevenace_system_prompt, correctness_system_prompt, relevenace_prompt, correctness_prompt
@@ -56,7 +56,7 @@ def get_scores(prompt, model, problem_type, relevance_correctness_weight):
 def calculate_prompt_scores(
         prompts, 
         model, 
-        problem_type, 
+        subdimension_type, 
         hmean_threshold, 
         relevance_correctness_weight, 
         use_cache, 
@@ -77,7 +77,7 @@ def calculate_prompt_scores(
         future_to_index = {executor.submit(
             get_scores, 
             prompt=prompt,
-            problem_type=problem_type,
+            subdimension_type=subdimension_type,
             model=model,
             relevance_correctness_weight=relevance_correctness_weight,
             use_cache=use_cache,
