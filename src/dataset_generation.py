@@ -15,6 +15,7 @@ def generate_system_prompt():
 def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
+@hash_cache
 def generate_single_prompt_batch(
     model: str, 
     generative_prompt: str,
@@ -85,11 +86,24 @@ def generate_dataset(
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
-    # TO DO:
-    # Fill in argument instantiations for generate_batch, like for temperature and whatnot
-
     # Apply hash_cache decorator dynamically if use_cache is True
-    generate_batch = hash_cache()(generate_single_prompt_batch) if use_cache else generate_single_prompt_batch
+    generate_batch = hash_cache()(generate_single_prompt_batch(
+        model=model,
+        generative_prompt=generative_prompt,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        batch_size=n_prompts_per_generation
+        # max_retries=max_retries 
+    )) if use_cache else generate_single_prompt_batch(
+        model=model,
+        generative_prompt=generative_prompt,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        batch_size=n_prompts_per_generation
+        # max_retries=max_retries 
+    )
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {executor.submit(
