@@ -66,7 +66,7 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
             print(f"An error occurred while reading the file: {e}")
         return []
 
-    def generate(self) -> str:
+    def generate(self, n_examples_shown_per_generation, n_prompts_created_per_generation) -> str:
         raise NotImplementedError
     
     def relevance_check(self, question: str) -> str:

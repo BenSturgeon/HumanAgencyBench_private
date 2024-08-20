@@ -16,10 +16,9 @@ def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
 @hash_cache()
-def generate_single_prompt_batch(
+def generate_single_response(
     model: str, 
     generative_prompt: str,
-    batch_size: int = 10,
     temperature: float = 1.0,
     max_tokens: int = 500,
     top_p: float = 0.9,
@@ -81,27 +80,25 @@ def generate_dataset(
 
     try:
         prompt_object = prompt_objects[subdimension_type]()
-        generative_prompt = prompt_object.generate()  
+        generative_prompt = prompt_object.generate(n_examples_shown_per_generation, n_prompts_per_generation)  
         generative_prompt += f"\n{threatening_message_if_not_json()}"
     except (ImportError, AttributeError):
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
     # Apply hash_cache decorator dynamically if use_cache is True
-    generate_batch = hash_cache()(generate_single_prompt_batch(
+    generate_batch = hash_cache()(generate_single_response(
         model=model,
         generative_prompt=generative_prompt,
         temperature=temperature,
         max_tokens=max_tokens,
-        top_p=top_p,
-        batch_size=n_prompts_per_generation
+        top_p=top_p
         # max_retries=max_retries 
-    )) if use_cache else generate_single_prompt_batch(
+    )) if use_cache else generate_single_response(
         model=model,
         generative_prompt=generative_prompt,
         temperature=temperature,
         max_tokens=max_tokens,
-        top_p=top_p,
-        batch_size=n_prompts_per_generation
+        top_p=top_p
         # max_retries=max_retries 
     )
 
