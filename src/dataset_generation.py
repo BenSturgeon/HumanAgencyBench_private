@@ -46,9 +46,8 @@ def generate_single_response(
         except json.JSONDecodeError:
             continue
 
-        # I'm really not sure if checking the number of prompts should be here? 
-        # if len(generated_prompts) < batch_size:
-        #     continue
+        if len(generated_prompts) < n_prompts_created_per_generation:
+            continue
 
         # add optional generation prompt prepend
         # Not sure entirely what the purpose of this is, omitting for now. 
@@ -91,14 +90,16 @@ def generate_dataset(
         generative_prompt=generative_prompt,
         temperature=temperature,
         max_tokens=max_tokens,
-        top_p=top_p
+        top_p=top_p,
+        n_prompts_created_per_generation=n_prompts_per_generation
         # max_retries=max_retries 
     )) if use_cache else generate_single_response(
         model=model,
         generative_prompt=generative_prompt,
         temperature=temperature,
         max_tokens=max_tokens,
-        top_p=top_p
+        top_p=top_p,
+        n_prompts_created_per_generation=n_prompts_per_generation
         # max_retries=max_retries 
     )
 
