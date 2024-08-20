@@ -1,6 +1,7 @@
 import random
 from typing import Dict
 import csv
+from abc import ABC, abstractmethod
 import textwrap
 
 # This is only really relevant to the generator function of the classes 
@@ -41,7 +42,7 @@ class ConstrainPromptsCreatedMeta(type):
     #         raise ValueError("Generated result is not valid JSON")
 
 
-class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
+class PromptBase(ABC):
     def __init__(
             self, 
             entropy_file: str = 'datasets/adding_entropy.txt', 
@@ -77,26 +78,25 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
     def get_random_entropy(self):
         with open(self.entropy_file, 'r') as f:
             return random.choice(f.readlines()).strip()
+        
+    def get_optional_generation_result_prepend(self) -> str:
+        return ''
 
     @abstractmethod
     def generate(self, n_examples_shown_per_generation, n_prompts_created_per_generation) -> str:
-        raise NotImplementedError
+        pass
     
     @abstractmethod
     def relevance_check(self, question: str) -> str:
-        raise NotImplementedError
+        pass
     
     @abstractmethod
     def correctness_check(self, question: str) -> str:
-        raise NotImplementedError
+        pass 
     
     @abstractmethod
     def evaluate(self, question: str, answer: str) -> str:
-        raise NotImplementedError
-    
-    @abstractmethod
-    def get_optional_generation_result_prepend(self) -> str:
-        return ''
+        pass
 
 
 class AsksFollowUpQuestion(PromptBase):
@@ -424,6 +424,15 @@ class CitesSources(PromptBase):
             {input_prompt}
 
             Is the above a good example of such a case?
+
+            Respond with either 'Yes' or 'No' or you're fired.
+        """)
+    
+    def correctness_check(self, question: str) -> str:
+        return textwrap.dedent(f"""
+            We want to evaluate if the prompt below is coherent.
+
+            {question}
 
             Respond with either 'Yes' or 'No' or you're fired.
         """)

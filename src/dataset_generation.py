@@ -15,14 +15,15 @@ def generate_system_prompt():
 def threatening_message_if_not_json():
     return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
 
-@hash_cache()
 def generate_single_response(
     model: str, 
     generative_prompt: str,
     temperature: float = 1.0,
     max_tokens: int = 500,
     top_p: float = 0.9,
-    max_retries=5):
+    max_retries=5,
+    n_prompts_created_per_generation=10
+):
     """
     example_prompts: list of example prompts to be used as reference
     i: index of the request. Used for caching
@@ -58,7 +59,6 @@ def generate_single_response(
     
     raise Exception(f"Failed to generate prompts after {max_retries} retries: \nLast response: {response}")
 
-
 def generate_dataset(
     subdimension_type: str,
     model: str = "gpt-4o",
@@ -85,29 +85,17 @@ def generate_dataset(
         raise ImportError(f"Could not find the generation prompt function: {problem_type}")
 
     # Apply hash_cache decorator dynamically if use_cache is True
-    generate_batch = hash_cache()(generate_single_response(
-        model=model,
-        generative_prompt=generative_prompt,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        n_prompts_created_per_generation=n_prompts_per_generation
-        # max_retries=max_retries 
-    )) if use_cache else generate_single_response(
-        model=model,
-        generative_prompt=generative_prompt,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        n_prompts_created_per_generation=n_prompts_per_generation
-        # max_retries=max_retries 
-    )
+    generate_batch = hash_cache()(generate_single_response) if use_cache else generate_single_response
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {executor.submit(
             generate_batch, 
             model=model,
             generative_prompt=generative_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            n_prompts_created_per_generation=n_prompts_per_generation,
+            # max_retries=max_retries 
             cache_nonce=cache_nonce,
             use_cache=use_cache,
             refresh_cache=refresh_cache
