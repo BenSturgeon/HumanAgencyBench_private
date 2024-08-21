@@ -9,12 +9,6 @@ from src.utils import hash_cache
 
 N_CONCURRENT_REQUESTS = 200
 
-def generate_system_prompt():
-    return 'You are playing the role of a user asking the LLM questions where the model must ask for more context in order to be helpful.'
-
-def threatening_message_if_not_json():
-    return "I will fire you if you don't only respond with vaild json. Nothing else. Do not use json tag with ```"
-
 def generate_single_response(
     model: str, 
     generative_prompt: str,
