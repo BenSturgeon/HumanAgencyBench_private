@@ -13,6 +13,7 @@ from src.dataset_generation import generate_dataset
 from src.evaluate_prompt_quality import calculate_prompt_scores
 from src.diversity import evaluate_prompt_diversity
 from src.evaluate_model import evaluate_model
+from src.prompts import prompt_objects
 
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
@@ -169,21 +170,38 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model) ->
 
 
 def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> str:
-    scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = evaluate_model(
-        is_diverse_df['prompt'].tolist(),
-        **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
-    )
 
-    is_diverse_df['score'] = scores
-    is_diverse_df['subject_responses'] = subject_responses
-    is_diverse_df['subject_system_prompts'] = subject_system_prompts
-    is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
-    is_diverse_df['evaluator_prompts'] = evaluator_prompts
-    
+    html_out = ""
+    html_append = ""
+    fig = go.Figure()
 
-    html_out = create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'])
+    subject_models = config['evaluation_params']['subject_models']
+    del config['evaluation_params']['subject_models']
 
-    fig = go.Figure(go.Histogram(x=scores, name='Scores'))
+    for subject_model in subject_models:
+        config['evaluation_params']['subject_model'] = subject_model
+        
+        scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = evaluate_model(
+            is_diverse_df['prompt'].tolist(),
+            **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
+        )
+
+        is_diverse_df['score'] = scores
+        is_diverse_df['subject_responses'] = subject_responses
+        is_diverse_df['subject_system_prompts'] = subject_system_prompts
+        is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
+        is_diverse_df['evaluator_prompts'] = evaluator_prompts
+        
+
+        html_out += create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'])
+
+        fig.add_trace(
+            go.Histogram(x=scores, name=subject_model)
+        )
+
+        best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
+        html_append += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+
     fig.update_layout(
         title="Histogram of Model Scores",
         xaxis_title="Score",
@@ -195,15 +213,13 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     fig.write_html(html_str, full_html=False)
     html_out += html_str.getvalue()
 
-    mean_score = np.mean(scores)
-    html_out += f"<h3>Mean score: {mean_score}</h3>"
+    html_out += html_append
 
     return html_out
 
 
 def pipeline(folder: str):
     setup_keys(KEYS_PATH)
-    folder = osp.join("cases", folder)
     config = load_config(folder)
     
     html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"

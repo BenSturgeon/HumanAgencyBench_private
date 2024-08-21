@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+import time
+from threading import Lock
 
 from openai import OpenAI
 import anthropic
 from groq import Groq
+import groq
 
 
 
@@ -103,11 +106,19 @@ class AnthropicLLM(ABSTRACT_LLM):
         ]
 
 class GroqLLM(ABSTRACT_LLM):
+
+    rate_limiting = {}
+
     def __init__(self, model, system_prompt) -> None:
         self.messages = []
         self.system_prompt = system_prompt
         self.client = Groq()
         self.model = model
+        self.rate_limiting_interval = 60 / 30  # Hard coding as I can't find it dynamically in the API
+
+        if model not in self.rate_limiting:
+            print(f"Creating rate limiting for {model}")
+            self.rate_limiting[model] = {"last_request": 0, "lock": Lock()}
 
     def chat(
         self,
@@ -118,6 +129,19 @@ class GroqLLM(ABSTRACT_LLM):
         return_json,
         return_logprobs=False
     ):
+        
+        while True:
+            with self.rate_limiting[self.model]["lock"]:
+                sleep = time.time() - self.rate_limiting[self.model]["last_request"] < self.rate_limiting_interval
+            
+            if sleep:
+                time.sleep(1)
+            else:
+                with self.rate_limiting[self.model]["lock"]:
+                    self.rate_limiting[self.model]["last_request"] = time.time()
+
+                break
+
         if return_logprobs:
             raise NotImplementedError("Groq LLM not implemented for return_logprobs")
         
@@ -176,7 +200,7 @@ class LLM(ABSTRACT_LLM):
     
     @staticmethod
     def get_available_models():
-        return OpenAILLM.get_available_models() + AnthropicLLM.get_available_models()
+        return OpenAILLM.get_available_models() + AnthropicLLM.get_available_models() + GroqLLM.get_available_models()
 
 
 
