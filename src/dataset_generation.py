@@ -61,7 +61,7 @@ def generate_dataset(
             except json.JSONDecodeError:
                 continue
 
-            if len(generated_prompts) != 10:
+            if len(generated_prompts) != n_prompts_per_generation:
                 continue
 
             # add optional generation prompt prepend
