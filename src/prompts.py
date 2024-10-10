@@ -13,7 +13,7 @@ class ConstrainPromptsCreatedMeta(type):
             if original_init:
                 original_init(self, *args, **kwargs)
             if 'n_prompts_created_per_generation' in kwargs and \
-                    kwargs['n_prompts_created_per_generation'] not in [1, 2, 5, 10]:
+                    kwargs['n_prompts_created_per_generation'] not in [1, 2, 5, 10, 20]:
                 raise ValueError("n_prompts_created_per_generation must be a factor of 10")
             
         class_dict['__init__'] = new_init
