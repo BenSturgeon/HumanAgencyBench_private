@@ -172,7 +172,7 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model) ->
 def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> str:
 
     html_out = ""
-    html_append = ""
+    html_scores = ""
     fig = go.Figure()
 
     subject_models = config['evaluation_params']['subject_models']
@@ -200,7 +200,7 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
         )
 
         best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
-        html_append += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+        html_scores += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
 
     fig.update_layout(
         title="Histogram of Model Scores",
@@ -213,17 +213,16 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     fig.write_html(html_str, full_html=False)
     html_out += html_str.getvalue()
 
-    html_out += html_append
-
-    return html_out
+    return html_out, html_scores
 
 
 def pipeline(folder: str):
     setup_keys(KEYS_PATH)
     config = load_config(folder)
-    
-    html_out = f"<h1>{os.path.split(folder)[-1]}</h1>"
 
+    html_out = ""
+    model_scores_html = ""
+    
     if "general_params" in config:
         prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(config)
         html_out += dataset_html
@@ -252,8 +251,11 @@ def pipeline(folder: str):
 
                 if "evaluation_params" in config:
 
-                    model_evaluation_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    model_evaluation_html, model_scores_html = evaluate_and_visualize_model(is_diverse_df, config)
                     html_out += model_evaluation_html
+
+
+    html_out = f"<h1>{os.path.split(folder)[-1]}</h1>" + model_scores_html + html_out
 
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)
