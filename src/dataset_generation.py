@@ -8,7 +8,7 @@ from src.prompts import prompt_objects, PromptBase
 from src.llms import LLM
 from src.utils import hash_cache
 
-N_CONCURRENT_REQUESTS = 200
+N_CONCURRENT_REQUESTS = 1000
 
 def generate_dataset(
     model: str,
@@ -37,7 +37,8 @@ def generate_dataset(
     def generate_single_prompt(
         model: str, 
         prompt_generator_object: PromptBase,
-        max_retries=5):
+        max_retries=5,
+        n_prompts_per_generation=10):
         """
         example_prompts: list of example prompts to be used as reference
         i: index of the request. Used for caching
@@ -62,6 +63,7 @@ def generate_dataset(
                 continue
 
             if len(generated_prompts) != n_prompts_per_generation:
+                print("Generated samples were the wrong length")
                 continue
 
             # add optional generation prompt prepend
