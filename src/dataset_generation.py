@@ -17,13 +17,13 @@ def generate_dataset(
     max_tokens: int,
     top_p: float,
     problem_type: str,
-    n_prompts_per_generation: int = 10,
+    n_prompts_created_per_generation: int = 10,
     use_cache: bool = True,
     refresh_cache: bool = False,
     return_json= True
 ) -> Union[List[str], List[str], List[str]]:
 
-    requests_needed = n_prompts // n_prompts_per_generation
+    requests_needed = n_prompts // n_prompts_created_per_generation
     generated_prompts = [None] * n_prompts
     system_prompts = [None] * n_prompts
     generative_prompts = [None] * n_prompts
@@ -37,8 +37,8 @@ def generate_dataset(
     def generate_single_prompt(
         model: str, 
         prompt_generator_object: PromptBase,
-        max_retries=5,
-        n_prompts_per_generation=10):
+        n_prompts_created_per_generation: int,
+        max_retries=5):
         """
         example_prompts: list of example prompts to be used as reference
         i: index of the request. Used for caching
@@ -48,7 +48,7 @@ def generate_dataset(
         # It's possible that max retries will be reached but just keeping it here to make sure we don't get stuck in an infinite loop
         for _ in range(max_retries):  
             llm = LLM(model, system_prompt)
-            generative_prompt = prompt_generator_object().generate()
+            generative_prompt = prompt_generator_object(n_prompts_created_per_generation=n_prompts_created_per_generation).generate()
             response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p, return_json=return_json)
 
             try:
@@ -62,8 +62,7 @@ def generate_dataset(
             except json.JSONDecodeError:
                 continue
 
-            if len(generated_prompts) != n_prompts_per_generation:
-                print("Generated samples were the wrong length")
+            if len(generated_prompts) != n_prompts_created_per_generation:
                 continue
 
             # add optional generation prompt prepend
@@ -79,6 +78,7 @@ def generate_dataset(
             generate_single_prompt,
             model=model,
             prompt_generator_object=prompt_generator_object,
+            n_prompts_created_per_generation=n_prompts_created_per_generation,
             cache_nonce=cache_nonce,
             use_cache=use_cache,
             refresh_cache=refresh_cache
@@ -89,8 +89,8 @@ def generate_dataset(
             generated_prompt, system_prompt, generative_prompt = future.result()
 
             index = future_to_index[future]
-            generated_prompts[index * n_prompts_per_generation: (index + 1) * n_prompts_per_generation] = generated_prompt
-            system_prompts[index * n_prompts_per_generation: (index + 1) * n_prompts_per_generation] = [system_prompt] * n_prompts_per_generation
-            generative_prompts[index * n_prompts_per_generation: (index + 1) * n_prompts_per_generation] = [generative_prompt] * n_prompts_per_generation
+            generated_prompts[index * n_prompts_created_per_generation: (index + 1) * n_prompts_created_per_generation] = generated_prompt
+            system_prompts[index * n_prompts_created_per_generation: (index + 1) * n_prompts_created_per_generation] = [system_prompt] * n_prompts_created_per_generation
+            generative_prompts[index * n_prompts_created_per_generation: (index + 1) * n_prompts_created_per_generation] = [generative_prompt] * n_prompts_created_per_generation
 
     return generated_prompts, system_prompts, generative_prompts
