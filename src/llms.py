@@ -309,7 +309,8 @@ class LLM(ABSTRACT_LLM):
             self.llm = GeminiLLM(model, system_prompt)
         else:
             raise ValueError(
-                f"Model {model} not found in available models. Available models\n: {"\n".join(self.get_available_models())}"
+                f"Model {model} not found in available models. Available models:\n"
+                + "\n".join(self.get_available_models())
             )
 
     def chat(
