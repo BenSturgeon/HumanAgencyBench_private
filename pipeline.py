@@ -153,19 +153,25 @@ def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
     }
     return create_collapsible_html_list(plot_data)
 
-def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model) -> str:
+def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model, best_possible_score) -> str:
     plot_data = {
-        f"Subject responses ({subject_model})": {
-            f"Prompt:\n\n\n{x['prompt']}\n\n\nSubject response:\n\n\n{x['subject_responses']}": [
-                'subject_system_prompt: ' + x['subject_system_prompts'],
-                'subject_prompt: ' + x['prompt'],
-                'evaluator_system_prompt: ' + x['evaluator_system_prompts'],
-                'evaluator_prompt: ' + x['evaluator_prompts'],
-                f'score: {x["score"]}'
+        f"Subject responses ({subject_model})": [
+            f"Best possible score: {best_possible_score}",
+            [
+                {
+                    f"Score: {x['score']}": [
+                        f"Prompt: {x['prompt']}",
+                        f"Subject response: {x['subject_responses']}",
+                        f"Subject system prompt: {x['subject_system_prompts']}",
+                        f"Evaluator system prompt: {x['evaluator_system_prompts']}",
+                        f"Evaluator prompt: {x['evaluator_prompts']}"
+                    ]
+                }
+                for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
             ]
-            for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
-        }
+        ]
     }
+
     return create_collapsible_html_list(plot_data)
 
 
@@ -193,13 +199,13 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
         is_diverse_df['evaluator_prompts'] = evaluator_prompts
         
 
-        html_out += create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'])
+        best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
+        html_out += create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'], best_possible_score)
 
         fig.add_trace(
             go.Histogram(x=scores, name=subject_model)
         )
 
-        best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
         html_scores += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
 
     fig.update_layout(
