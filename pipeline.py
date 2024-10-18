@@ -220,7 +220,7 @@ def pipeline(folder: str):
     setup_keys(KEYS_PATH)
     config = load_config(folder)
 
-    html_out = ""
+    html_out = "<h1>Eval generation phase</h1>"
     model_scores_html = ""
     
     if "general_params" in config:
@@ -252,6 +252,7 @@ def pipeline(folder: str):
                 if "evaluation_params" in config:
 
                     model_evaluation_html, model_scores_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    html_out += "<h1>Model evaluation phase</h1>"
                     html_out += model_evaluation_html
 
 
