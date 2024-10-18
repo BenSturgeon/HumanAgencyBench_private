@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
 import time
 from threading import Lock
+from typing import Any, Dict, Optional, List
 
 from openai import OpenAI
 import anthropic
 from groq import Groq
 import groq
+import replicate
+import google.generativeai as genai
 
 
 class ABSTRACT_LLM(ABC):
@@ -191,6 +194,105 @@ class GroqLLM(ABSTRACT_LLM):
         return [model.id for model in Groq().models.list().data]
 
 
+class ReplicateLLM(ABSTRACT_LLM):
+    def __init__(self, model: str, system_prompt: str) -> None:
+        super().__init__(system_prompt)
+        self.client = replicate.Client()
+        self.model = model
+
+    def chat(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        return_json: bool = False,
+        return_logprobs: bool = False
+    ) -> str:
+        if return_logprobs:
+            raise NotImplementedError("Replicate LLM not implemented for return_logprobs")
+
+        self.messages.append({"role": "user", "content": prompt})
+
+        input_data: Dict[str, Any] = {
+            "prompt": prompt,
+            "system_prompt": self.system_prompt,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+        }
+
+        input_data = {k: v for k, v in input_data.items() if v is not None}
+
+        output = self.client.run(
+            self.model,
+            input=input_data
+        )
+
+        response_text = "".join(output)
+
+        self.messages.append({"role": "assistant", "content": response_text})
+
+        return response_text
+
+    @staticmethod
+    def get_available_models() -> list:
+        return [
+            "meta/meta-llama-3.1-405b-instruct"
+        ]
+
+
+class GeminiLLM(ABSTRACT_LLM):
+    def __init__(self, model: str, system_prompt: str) -> None:
+        super().__init__(system_prompt)
+        self.model = model
+        genai.configure()
+
+    def chat(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        return_json: bool = False,
+        return_logprobs: bool = False
+    ) -> str:
+
+        if return_logprobs:
+            raise NotImplementedError("Gemini LLM not implemented for return_logprobs")
+
+        self.messages.append({"role": "user", "content": prompt})
+
+        generation_config = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_output_tokens": max_tokens,
+        }
+        generation_config = {k: v for k, v in generation_config.items() if v is not None}
+
+        model = genai.GenerativeModel(model_name=self.model)
+        chat = model.start_chat(history=[])
+
+        if self.system_prompt:
+            chat.send_message(self.system_prompt)
+
+        response = chat.send_message(
+            prompt,
+            generation_config=generation_config
+        )
+
+        response_text = response.text
+
+        self.messages.append({"role": "assistant", "content": response_text})
+
+        return response_text
+
+    @staticmethod
+    def get_available_models() -> List[str]:
+        genai.configure()
+        return [model.name for model in genai.list_models() if "generateContent" in model.supported_generation_methods]
+
+
 class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
@@ -201,9 +303,13 @@ class LLM(ABSTRACT_LLM):
             self.llm = AnthropicLLM(model, system_prompt)
         elif model in GroqLLM.get_available_models():
             self.llm = GroqLLM(model, system_prompt)
+        elif model in ReplicateLLM.get_available_models():
+            self.llm = ReplicateLLM(model, system_prompt)
+        elif model in GeminiLLM.get_available_models():
+            self.llm = GeminiLLM(model, system_prompt)
         else:
             raise ValueError(
-                f"Model {model} not found in available models. Available models: {self.get_available_models()}"
+                f"Model {model} not found in available models. Available models\n: {"\n".join(self.get_available_models())}"
             )
 
     def chat(
@@ -230,6 +336,8 @@ class LLM(ABSTRACT_LLM):
             OpenAILLM.get_available_models()
             + AnthropicLLM.get_available_models()
             + GroqLLM.get_available_models()
+            + ReplicateLLM.get_available_models()
+            + GeminiLLM.get_available_models()
         )
 
 
@@ -239,14 +347,16 @@ if __name__ == "__main__":
 
     setup_keys("keys.json")
 
-    llm = GroqLLM("gemma-7b-it", "")
-    print(llm.get_available_models())
-    response = llm.chat(
-        "What is the capital of France?",
-        temperature=0,
-        max_tokens=50,
-        top_p=1,
-        return_json=False,
-    )
-    print(response)
+    print(GeminiLLM.get_available_models())
+
+    # llm = GroqLLM("gemma-7b-it", "")
+    # print(llm.get_available_models())
+    # response = llm.chat(
+    #     "What is the capital of France?",
+    #     temperature=0,
+    #     max_tokens=50,
+    #     top_p=1,
+    #     return_json=False,
+    # )
+    # print(response)
     # print(llm.get_available_models())
