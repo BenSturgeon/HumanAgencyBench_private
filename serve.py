@@ -29,7 +29,10 @@ def list_files():
 
 @app.route('/<path:filename>')
 def serve_file(filename):
+    if not filename.endswith(".html"):
+        return "Forbidden", 403
+        
     return send_from_directory(os.getcwd(), filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0")

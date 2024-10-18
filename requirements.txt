@@ -7,3 +7,6 @@ pyyaml
 scikit-learn
 plotly
 argh
+flask
+replicate
+google-generativeai
