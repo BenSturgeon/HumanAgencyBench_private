@@ -146,11 +146,10 @@ class GroqLLM(ABSTRACT_LLM):
         self.client = Groq()
         self.model = model
         self.rate_limiting_interval = (
-            60 / 30
+            60 / 15
         )  # Hard coding as I can't find it dynamically in the API
 
         if model not in self.rate_limiting:
-            print(f"Creating rate limiting for {model}")
             self.rate_limiting[model] = {"last_request": 0, "lock": Lock()}
 
     def chat(

@@ -42,7 +42,7 @@ def get_model_responses(
                 refresh_cache=refresh_cache
             ): i for i, prompt in enumerate(prompts)
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Getting student model responses'):
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Getting student model responses: {model}'):
             index = future_to_index[future]
             responses[index], system_prompts[index] = future.result()
 
@@ -71,7 +71,7 @@ def score_response(
     return score, system_prompt, eval_prompt
         
 
-def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache):
+def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache, subject_model):
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
     eval_prompts = [None] * len(prompts) 
@@ -93,7 +93,7 @@ def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_ca
                 refresh_cache=refresh_cache
             ): i for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring responses'):
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Scoring responses: {subject_model}'):
             index = future_to_index[future]
             scores[index], system_prompts[index], eval_prompts[index] = future.result()
 
@@ -105,5 +105,5 @@ def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temper
     
     subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache)
+    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache, subject_model)
     return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts

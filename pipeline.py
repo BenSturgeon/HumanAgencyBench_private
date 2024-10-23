@@ -2,6 +2,9 @@ import os.path as osp
 import yaml
 import os
 from io import StringIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
+
 import pandas as pd
 import numpy as np
 from sklearn.manifold import TSNE
@@ -18,6 +21,7 @@ from src.prompts import prompt_objects
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
 PLOT_HEIGHTS = 600
+N_CONCURRENTLY_EVALUATED_SUBJECTS = 50
 
 
 def load_config(folder: str) -> dict:
@@ -184,29 +188,39 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     subject_models = config['evaluation_params']['subject_models']
     del config['evaluation_params']['subject_models']
 
-    for subject_model in subject_models:
-        config['evaluation_params']['subject_model'] = subject_model
-        
-        scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = evaluate_model(
-            is_diverse_df['prompt'].tolist(),
-            **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
-        )
+    with ThreadPoolExecutor(max_workers=N_CONCURRENTLY_EVALUATED_SUBJECTS) as executor:
 
-        is_diverse_df['score'] = scores
-        is_diverse_df['subject_responses'] = subject_responses
-        is_diverse_df['subject_system_prompts'] = subject_system_prompts
-        is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
-        is_diverse_df['evaluator_prompts'] = evaluator_prompts
-        
+        future_to_index = {}
+        for subject_model in subject_models:
+            config = deepcopy(config)
+            config['evaluation_params']['subject_model'] = subject_model
 
-        best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
-        html_out += create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'], best_possible_score)
+            future_to_index.update({
+                executor.submit(
+                    evaluate_model,
+                    is_diverse_df['prompt'].tolist(),
+                    **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
+                ): subject_model
+            })
 
-        fig.add_trace(
-            go.Histogram(x=scores, name=subject_model)
-        )
+        for future in as_completed(future_to_index):
+            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = future.result()
 
-        html_scores += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+            is_diverse_df['score'] = scores
+            is_diverse_df['subject_responses'] = subject_responses
+            is_diverse_df['subject_system_prompts'] = subject_system_prompts
+            is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
+            is_diverse_df['evaluator_prompts'] = evaluator_prompts
+
+            best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
+
+            fig.add_trace(
+                go.Histogram(x=scores, name=f"{future_to_index[future]}")
+            )
+
+            html_out += create_subject_responses_html(is_diverse_df, future_to_index[future], best_possible_score)
+            html_scores += f"<h3>{future_to_index[future]} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+
 
     fig.update_layout(
         title="Histogram of Model Scores",
@@ -226,7 +240,7 @@ def pipeline(folder: str):
     setup_keys(KEYS_PATH)
     config = load_config(folder)
 
-    html_out = "<h1>Eval generation phase</h1>"
+    html_out = f"<h1>Eval generation phase</h1>"
     model_scores_html = ""
     
     if "general_params" in config:
@@ -262,7 +276,8 @@ def pipeline(folder: str):
                     html_out += model_evaluation_html
 
 
-    html_out = f"<h1>{os.path.split(folder)[-1]}</h1>" + model_scores_html + html_out
+    html_out = f"<h1>{config['general_params']['problem_type']}</h1>" + \
+        f"<h1>{os.path.split(folder)[-1]}</h1>" + model_scores_html + html_out
 
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)
