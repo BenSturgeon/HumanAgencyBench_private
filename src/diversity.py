@@ -42,7 +42,7 @@ def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[
 def evaluate_prompt_diversity(prompts, model, n_diverse_prompts, use_cache, refresh_cache, problem_type):  # problem_type is accepted just to keep the kwargs consistent with the other functions
 
     if len(prompts) < 50:
-        raise ValueError("The number of prompts should be at least 50 for pca. It's likely that the hmean threshold is to strict.")
+        raise ValueError(f"The number of prompts should be at least 50 for pca. It's likely that the hmean threshold is to strict. N prompts passed: {len(prompts)}")
     
     embeddings = get_embeddings(prompts, model, use_cache, refresh_cache)
 

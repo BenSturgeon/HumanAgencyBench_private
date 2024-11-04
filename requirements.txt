@@ -10,3 +10,4 @@ argh
 flask
 replicate
 google-generativeai
+umap-learn

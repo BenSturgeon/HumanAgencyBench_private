@@ -2,9 +2,12 @@ import os.path as osp
 import yaml
 import os
 from io import StringIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
+
 import pandas as pd
 import numpy as np
-from sklearn.manifold import TSNE
+import umap.umap_ as umap
 from plotly import graph_objects as go
 import argh
 
@@ -18,6 +21,7 @@ from src.prompts import prompt_objects
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
 PLOT_HEIGHTS = 600
+N_CONCURRENTLY_EVALUATED_SUBJECTS = 50
 
 
 def load_config(folder: str) -> dict:
@@ -51,12 +55,45 @@ def generate_and_visualize_dataset(config: dict) -> tuple:
     return prompts, system_prompts, generative_prompts, html_out, relevance_scores
 
 
+
+
 def calculate_and_visualize_scores(prompts: list, config: dict) -> tuple:
     correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, relevance_system_prompts, \
         correctness_system_prompts, relevance_prompts, correctness_prompts = calculate_prompt_scores(
             prompts, 
             **pass_optional_params(general_params=config['general_params'], params=config['QA_params'])
     )
+
+    df = pd.DataFrame({
+        'prompt': prompts,
+        'system_prompt': system_prompts,
+        'generative_prompt': generative_prompts,
+        'correctness_score': correctness_scores,
+        'relevance_score': relevance_scores,
+        'harmonic_mean_score': harmonic_mean_scores,
+        'correctness_prompt': correctness_prompts,
+        'relevance_prompt': relevance_prompts
+    })
+    df = df.sort_values('harmonic_mean_score', ascending=False)
+
+    plot_data = {
+        "Generated_prompts": {
+            x['prompt']: [
+                'System Prompt: ' + x['system_prompt'],
+                'Genrative Prompt: ' + x['generative_prompt'],
+                {
+                    f'Correctness: {x["correctness_score"]}': [
+                        f'Correctness prompt: {x["correctness_prompt"]}'
+                    ],
+                    f'Relevance: {x["relevance_score"]}': [
+                        f'Relevance prompt: {x["relevance_prompt"]}'
+                    ]
+                },
+                f'Relevance, Correctness Harmonic mean: {x["harmonic_mean_score"]}'
+            ]
+            for _, x in df.iterrows()
+        }
+    }
 
     fig = go.Figure(
         [
@@ -74,7 +111,7 @@ def calculate_and_visualize_scores(prompts: list, config: dict) -> tuple:
 
     html_buffer = StringIO()
     fig.write_html(html_buffer, full_html=False)
-    html_str = html_buffer.getvalue()
+    html_str = create_collapsible_html_list(plot_data) + html_buffer.getvalue()
     
     return correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
            relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, html_str
@@ -104,8 +141,8 @@ def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -
         **pass_optional_params(general_params=config['general_params'], params=config['diversity_params'])
     )
 
-    tsne = TSNE(n_components=2, random_state=42, init='random', learning_rate=200)
-    vis_dims = tsne.fit_transform(np.array(pca_features))
+    umap_reducer = umap.UMAP(n_components=2, random_state=42)
+    vis_dims = umap_reducer.fit(np.array(pca_features)).embedding_
 
     fig = go.Figure()
     fig.add_trace(
@@ -125,7 +162,7 @@ def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -
         )
     )
     fig.update_layout(
-        title="t-SNE Visualization of Text Embeddings with k-Means Clustering",
+        title="UMAP Visualization of Text Embeddings with k-Means Clustering",
         xaxis_title="Component 1", yaxis_title="Component 2", hovermode='closest', height=PLOT_HEIGHTS
     )
 
@@ -167,9 +204,10 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model, be
                 {
                     f"Score: {x['score']}": [
                         f"Prompt: {x['prompt']}",
-                        f"Subject system prompt: {x['subject_system_prompts']}",
-                        f"Evaluator system prompt: {x['evaluator_system_prompts']}",
-                        f"Evaluator prompt: {x['evaluator_prompts']}"
+                        f"Subject response: {x['subject_response']}",
+                        f"Subject system prompt: {x['subject_system_prompt']}",
+                        f"Evaluator system prompt: {x['evaluator_system_prompt']}",
+                        f"Evaluator prompt: {x['evaluator_prompt']}"
                     ]
                 }
                 for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
@@ -189,29 +227,46 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     subject_models = config['evaluation_params']['subject_models']
     del config['evaluation_params']['subject_models']
 
-    for subject_model in subject_models:
-        config['evaluation_params']['subject_model'] = subject_model
-        
-        scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = evaluate_model(
-            is_diverse_df['prompt'].tolist(),
-            **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
-        )
+    dfs = []
 
-        is_diverse_df['score'] = scores
-        is_diverse_df['subject_responses'] = subject_responses
-        is_diverse_df['subject_system_prompts'] = subject_system_prompts
-        is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
-        is_diverse_df['evaluator_prompts'] = evaluator_prompts
-        
+    with ThreadPoolExecutor(max_workers=N_CONCURRENTLY_EVALUATED_SUBJECTS) as executor:
 
-        best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
-        html_out += create_subject_responses_html(is_diverse_df, config['evaluation_params']['subject_model'], best_possible_score)
+        future_to_index = {}
+        for subject_model in subject_models:
+            config = deepcopy(config)
+            config['evaluation_params']['subject_model'] = subject_model
 
-        fig.add_trace(
-            go.Histogram(x=scores, name=subject_model)
-        )
+            future_to_index.update({
+                executor.submit(
+                    evaluate_model,
+                    is_diverse_df['prompt'].tolist(),
+                    **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params'])
+                ): subject_model
+            })
 
-        html_scores += f"<h3>{subject_model} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+        for future in as_completed(future_to_index):
+            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = future.result()
+
+            is_diverse_df = is_diverse_df.copy()
+
+            is_diverse_df['score'] = scores
+            is_diverse_df['subject_response'] = subject_responses
+            is_diverse_df['subject_system_prompt'] = subject_system_prompts
+            is_diverse_df['evaluator_system_prompt'] = evaluator_system_prompts
+            is_diverse_df['evaluator_prompt'] = evaluator_prompts
+            is_diverse_df['subject_model'] = future_to_index[future]
+
+            dfs.append(is_diverse_df)
+
+            best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
+
+            fig.add_trace(
+                go.Histogram(x=scores, name=f"{future_to_index[future]}")
+            )
+
+            html_out += create_subject_responses_html(is_diverse_df, future_to_index[future], best_possible_score)
+            html_scores += f"<h3>{future_to_index[future]} Mean Score: {np.mean(scores) / best_possible_score * 100:.2f}%</h3>"
+
 
     fig.update_layout(
         title="Histogram of Model Scores",
@@ -224,23 +279,25 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     fig.write_html(html_str, full_html=False)
     html_out += html_str.getvalue()
 
-    return html_out, html_scores
+    df = pd.concat(dfs, ignore_index=True)
+
+    return html_out, html_scores, df
 
 
 def pipeline(folder: str):
     setup_keys(KEYS_PATH)
     config = load_config(folder)
 
-    html_out = "<h1>Eval generation phase</h1>"
+    html_out = f"<h1>Eval generation phase</h1>"
     model_scores_html = ""
     
     if "general_params" in config:
-        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(config)
-        html_out += dataset_html
-
+        prompts, system_prompts, generative_prompts = generate_dataset(
+            **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
+        )
 
         if "QA_params" in config:
-            scores_results = calculate_and_visualize_scores(prompts, config)
+            scores_results = calculate_and_visualize_scores(prompts, system_prompts, generative_prompts, config)
             correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
             relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
             html_out += scores_html
@@ -262,12 +319,16 @@ def pipeline(folder: str):
 
                 if "evaluation_params" in config:
 
-                    model_evaluation_html, model_scores_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    model_evaluation_html, model_scores_html, out_df = evaluate_and_visualize_model(is_diverse_df, config)
                     html_out += "<h1>Model evaluation phase</h1>"
                     html_out += model_evaluation_html
 
+                    with open(os.path.join(folder, 'raw.csv'), 'w') as f:
+                        f.write(out_df.to_csv(index=False))
 
-    html_out = f"<h1>{os.path.split(folder)[-1]}</h1>" + model_scores_html + html_out
+
+    html_out = f"<h1>{config['general_params']['problem_type']}</h1>" + \
+        f"<h1>{os.path.split(folder)[-1]}</h1>" + model_scores_html + html_out
 
     with open(os.path.join(folder, 'plot.html'), 'w') as f:
         f.write(html_out)

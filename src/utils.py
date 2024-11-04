@@ -7,7 +7,7 @@ import json
 import threading
 import html
 
-def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
+def hash_cache(directory="hash_cache"):
     """
     Decorator that caches the result of a function based on the function's arguments.
     The Decorator extracts the following args from the function call 
@@ -37,8 +37,7 @@ def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
                 with lock:
                     try:
                         with open(cache_path, "rb") as file:
-                            result, timestamp = pickle.load(file)
-                        if (time.time() - timestamp) < cache_expiration:
+                            result = pickle.load(file)
                             return result
                     except (EOFError, pickle.PickleError):
                         print('Bad cache file, recomputing')
@@ -46,14 +45,13 @@ def hash_cache(directory="/tmp/hash_cache", cache_expiration=86400):
             result = func(*args, **kwargs)
             with lock:
                 with open(cache_path, "wb") as file:
-                    pickle.dump((result, time.time()), file)
+                    pickle.dump(result, file)
 
             return result
         
         return wrapper
     
     return decorator
-
 
 def setup_keys(keys_path):
     if 'OPENAI_API_KEY' in os.environ and 'ANTHROPIC_API_KEY' in os.environ:
