@@ -65,8 +65,8 @@ def score_response(
     except ValueError:
         raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
 
-    if 0 >= score >= 10:
-        raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")  # TODO will all eval prompts return a score in this range?
+    if not (0 <= score <= eval_prompt_object().top_eval_score):
+        raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {eval_prompt_object().top_eval_score}") 
     
     return score, system_prompt, eval_prompt
         
