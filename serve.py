@@ -9,7 +9,7 @@ def list_files():
     for root, dirs, filenames in os.walk('cases'):
         for filename in filenames:
             path = os.path.relpath(os.path.join(root, filename), os.getcwd())
-            if path.endswith('.html'):
+            if path.endswith('.html') or path.endswith('raw.csv'):
                 files.append(path)
     
     html = """
@@ -29,7 +29,7 @@ def list_files():
 
 @app.route('/<path:filename>')
 def serve_file(filename):
-    if not filename.endswith(".html"):
+    if not (filename.endswith(".html") or filename.endswith("raw.csv")):
         return "Forbidden", 403
         
     return send_from_directory(os.getcwd(), filename)

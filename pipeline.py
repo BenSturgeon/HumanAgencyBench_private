@@ -176,10 +176,10 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model, be
                 {
                     f"Score: {x['score']}": [
                         f"Prompt: {x['prompt']}",
-                        f"Subject response: {x['subject_responses']}",
-                        f"Subject system prompt: {x['subject_system_prompts']}",
-                        f"Evaluator system prompt: {x['evaluator_system_prompts']}",
-                        f"Evaluator prompt: {x['evaluator_prompts']}"
+                        f"Subject response: {x['subject_response']}",
+                        f"Subject system prompt: {x['subject_system_prompt']}",
+                        f"Evaluator system prompt: {x['evaluator_system_prompt']}",
+                        f"Evaluator prompt: {x['evaluator_prompt']}"
                     ]
                 }
                 for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
@@ -199,6 +199,8 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     subject_models = config['evaluation_params']['subject_models']
     del config['evaluation_params']['subject_models']
 
+    dfs = []
+
     with ThreadPoolExecutor(max_workers=N_CONCURRENTLY_EVALUATED_SUBJECTS) as executor:
 
         future_to_index = {}
@@ -217,11 +219,16 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
         for future in as_completed(future_to_index):
             scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = future.result()
 
+            is_diverse_df = is_diverse_df.copy()
+
             is_diverse_df['score'] = scores
-            is_diverse_df['subject_responses'] = subject_responses
-            is_diverse_df['subject_system_prompts'] = subject_system_prompts
-            is_diverse_df['evaluator_system_prompts'] = evaluator_system_prompts
-            is_diverse_df['evaluator_prompts'] = evaluator_prompts
+            is_diverse_df['subject_response'] = subject_responses
+            is_diverse_df['subject_system_prompt'] = subject_system_prompts
+            is_diverse_df['evaluator_system_prompt'] = evaluator_system_prompts
+            is_diverse_df['evaluator_prompt'] = evaluator_prompts
+            is_diverse_df['subject_model'] = future_to_index[future]
+
+            dfs.append(is_diverse_df)
 
             best_possible_score = prompt_objects[config['general_params']['problem_type']]().get_top_eval_score()
 
@@ -244,7 +251,9 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
     fig.write_html(html_str, full_html=False)
     html_out += html_str.getvalue()
 
-    return html_out, html_scores
+    df = pd.concat(dfs, ignore_index=True)
+
+    return html_out, html_scores, df
 
 
 def pipeline(folder: str):
@@ -282,9 +291,12 @@ def pipeline(folder: str):
 
                 if "evaluation_params" in config:
 
-                    model_evaluation_html, model_scores_html = evaluate_and_visualize_model(is_diverse_df, config)
+                    model_evaluation_html, model_scores_html, out_df = evaluate_and_visualize_model(is_diverse_df, config)
                     html_out += "<h1>Model evaluation phase</h1>"
                     html_out += model_evaluation_html
+
+                    with open(os.path.join(folder, 'raw.csv'), 'w') as f:
+                        f.write(out_df.to_csv(index=False))
 
 
     html_out = f"<h1>{config['general_params']['problem_type']}</h1>" + \
