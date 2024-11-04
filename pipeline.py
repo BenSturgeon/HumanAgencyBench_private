@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import pandas as pd
 import numpy as np
-from sklearn.manifold import TSNE
+import umap.umap_ as umap
 from plotly import graph_objects as go
 import argh
 
@@ -102,8 +102,8 @@ def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -
         **pass_optional_params(general_params=config['general_params'], params=config['diversity_params'])
     )
 
-    tsne = TSNE(n_components=2, random_state=42, init='random', learning_rate=200)
-    vis_dims = tsne.fit_transform(np.array(pca_features))
+    umap_reducer = umap.UMAP(n_components=2, random_state=42)
+    vis_dims = umap_reducer.fit(np.array(pca_features)).embedding_
 
     fig = go.Figure()
     fig.add_trace(
@@ -123,7 +123,7 @@ def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -
         )
     )
     fig.update_layout(
-        title="t-SNE Visualization of Text Embeddings with k-Means Clustering",
+        title="UMAP Visualization of Text Embeddings with k-Means Clustering",
         xaxis_title="Component 1", yaxis_title="Component 2", hovermode='closest', height=PLOT_HEIGHTS
     )
 
