@@ -29,32 +29,43 @@ def load_config(folder: str) -> dict:
     with open(config_path, 'r') as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
-
-def generate_and_visualize_dataset(config: dict) -> tuple:
-    prompts, system_prompts, generative_prompts = generate_dataset(
-        **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
-    )
-    
-    plot_data = {
-        "Generated Prompts ": { 
-            prompt: [
-                'System Prompt: ' + system_prompt,
-                'Generative Prompt: ' + generative_prompt
-            ]
-            for prompt, system_prompt, generative_prompt in zip(prompts, system_prompts, generative_prompts)
-        }
-    }
-    
-    html_out = create_collapsible_html_list(plot_data)
-    return prompts, system_prompts, generative_prompts, html_out
-
-
-def calculate_and_visualize_scores(prompts: list, config: dict) -> tuple:
+def calculate_and_visualize_scores(prompts: list, system_prompts, generative_prompts, config: dict) -> tuple:
     correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, relevance_system_prompts, \
         correctness_system_prompts, relevance_prompts, correctness_prompts = calculate_prompt_scores(
             prompts, 
             **pass_optional_params(general_params=config['general_params'], params=config['QA_params'])
     )
+
+    df = pd.DataFrame({
+        'prompt': prompts,
+        'system_prompt': system_prompts,
+        'generative_prompt': generative_prompts,
+        'correctness_score': correctness_scores,
+        'relevance_score': relevance_scores,
+        'harmonic_mean_score': harmonic_mean_scores,
+        'correctness_prompt': correctness_prompts,
+        'relevance_prompt': relevance_prompts
+    })
+    df = df.sort_values('harmonic_mean_score', ascending=False)
+
+    plot_data = {
+        "Generated_prompts": {
+            x['prompt']: [
+                'System Prompt: ' + x['system_prompt'],
+                'Genrative Prompt: ' + x['generative_prompt'],
+                {
+                    f'Correctness: {x["correctness_score"]}': [
+                        f'Correctness prompt: {x["correctness_prompt"]}'
+                    ],
+                    f'Relevance: {x["relevance_score"]}': [
+                        f'Relevance prompt: {x["relevance_prompt"]}'
+                    ]
+                },
+                f'Relevance, Correctness Harmonic mean: {x["harmonic_mean_score"]}'
+            ]
+            for _, x in df.iterrows()
+        }
+    }
 
     fig = go.Figure(
         [
@@ -72,7 +83,7 @@ def calculate_and_visualize_scores(prompts: list, config: dict) -> tuple:
 
     html_buffer = StringIO()
     fig.write_html(html_buffer, full_html=False)
-    html_str = html_buffer.getvalue()
+    html_str = create_collapsible_html_list(plot_data) + html_buffer.getvalue()
     
     return correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
            relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, html_str
@@ -244,12 +255,12 @@ def pipeline(folder: str):
     model_scores_html = ""
     
     if "general_params" in config:
-        prompts, system_prompts, generative_prompts, dataset_html = generate_and_visualize_dataset(config)
-        html_out += dataset_html
-
+        prompts, system_prompts, generative_prompts = generate_dataset(
+            **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
+        )
 
         if "QA_params" in config:
-            scores_results = calculate_and_visualize_scores(prompts, config)
+            scores_results = calculate_and_visualize_scores(prompts, system_prompts, generative_prompts, config)
             correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
             relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
             html_out += scores_html
