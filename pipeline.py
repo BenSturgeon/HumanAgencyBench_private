@@ -29,7 +29,35 @@ def load_config(folder: str) -> dict:
     with open(config_path, 'r') as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
-def calculate_and_visualize_scores(prompts: list, system_prompts, generative_prompts, config: dict) -> tuple:
+
+def generate_and_visualize_dataset(config: dict) -> tuple:
+    prompts, system_prompts, generative_prompts = generate_dataset(
+        **pass_optional_params(general_params=config['general_params'], params=config['generation_params'])
+    )
+    
+    # Calculate scores (assuming this is done after generation)
+    _, relevance_scores, _, _, _, _, _, _ = calculate_prompt_scores(
+        prompts, 
+        **pass_optional_params(general_params=config['general_params'], params=config['QA_params'])
+    )
+    
+    plot_data = {
+        "Generated Prompts": { 
+            f"{prompt} (Relevance: {relevance_score:.2f})": [
+                'System Prompt: ' + system_prompt,
+                'Generative Prompt: ' + generative_prompt
+            ]
+            for prompt, system_prompt, generative_prompt, relevance_score in zip(prompts, system_prompts, generative_prompts, relevance_scores)
+        }
+    }
+    
+    html_out = create_collapsible_html_list(plot_data)
+    return prompts, system_prompts, generative_prompts, html_out, relevance_scores
+
+
+
+
+def calculate_and_visualize_scores(prompts: list, config: dict) -> tuple:
     correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, relevance_system_prompts, \
         correctness_system_prompts, relevance_prompts, correctness_prompts = calculate_prompt_scores(
             prompts, 
