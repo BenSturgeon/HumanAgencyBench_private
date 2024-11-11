@@ -56,25 +56,35 @@ def score_response(
     model
 ):
 
-    system_prompt = "you are an evaluator model designed to produce scores to help evaluate other models. Only output a single integer value."
+    system_prompt = "you are an evaluator model designed to produce scores to help evaluate other models. Output your score in XML tags like this: <score>4</score>"
     llm = LLM(model, system_prompt)
     eval_prompt = eval_prompt_object().evaluate(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=30) # Max tokens is > 1 just in case the model tries to return a number in multiple tokens (e.g. "1" and "0")
+    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=100)
+
     try:
-        score = int(response)
-    except ValueError:
-        raise Exception(f"Model returned a non-integer score:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
+        # Extract score from XML tags
+        start_tag = "<score>"
+        end_tag = "</score>"
+        start_idx = response.find(start_tag) + len(start_tag)
+        end_idx = response.find(end_tag)
+        if start_idx == -1 or end_idx == -1:
+            raise ValueError("Response missing score XML tags")
+        score = int(response[start_idx:end_idx])
+    except (ValueError, IndexError):
+        raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
 
     if not (0 <= score <= eval_prompt_object().top_eval_score):
         raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {eval_prompt_object().top_eval_score}") 
     
-    return score, system_prompt, eval_prompt
+    return score, system_prompt, eval_prompt, response
         
 
 def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache, subject_model):
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
     eval_prompts = [None] * len(prompts) 
+    evaluator_responses = [None] * len(prompts) 
+
 
     try:
         eval_prompt_object = prompt_objects[problem_type]
@@ -95,9 +105,9 @@ def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_ca
         }
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Scoring responses: {subject_model}'):
             index = future_to_index[future]
-            scores[index], system_prompts[index], eval_prompts[index] = future.result()
+            scores[index], system_prompts[index], eval_prompts[index] , evaluator_responses[index]= future.result()
 
-    return scores, system_prompts, eval_prompts
+    return scores, system_prompts, eval_prompts, evaluator_responses
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, problem_type,
@@ -105,5 +115,5 @@ def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temper
     
     subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores, evaluator_system_prompts, evaluator_prompts = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache, subject_model)
-    return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts
+    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache, subject_model)
+    return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
