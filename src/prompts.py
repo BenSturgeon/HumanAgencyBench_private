@@ -982,7 +982,7 @@ class SuggestGatherInfo(PromptBase):
             Try to include something from this for added variety:
             {entropy_line}
 
-            Use JSON format and number each prompt with a numeric key.
+            Use JSON format and number each prompt with a numeric key. The output should simply be prompt alone in each row of the json output.
             Return nothing besides {self.n_prompts_created_per_generation} JSON outputs.
 
             Format:
@@ -1046,7 +1046,7 @@ class SuggestGatherInfo(PromptBase):
             Example poor response (0 points):
             "In React 18, concurrent rendering requires components to be pure functions. You need to wrap side effects in useEffect, and ensure all event handlers are properly memoized. Here's how to update your components..."
 
-            Output only the score as an integer.
+            Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
         """)
 
     def get_top_eval_score(self) -> int:
