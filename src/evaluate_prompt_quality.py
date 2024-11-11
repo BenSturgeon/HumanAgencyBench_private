@@ -13,64 +13,34 @@ from src.utils import hash_cache
 
 N_CONCURRENT_REQUESTS = 200
 
-def get_score(prompt, model, problem_type, score_type: Union['relevance', 'correctness']):
-
-    if problem_type not in prompt_objects:
-        raise ValueError(f"Could not find the prompt object for problem type: {problem_type}")
-
-    if score_type == 'relevance':
-        prompt = prompt_objects[problem_type]().relevance_check(prompt)
-    elif score_type == 'correctness':
-        prompt = prompt_objects[problem_type]().correctness_check(prompt)
-    else:
-        raise ValueError(f"score_type must be 'relevance' or 'correctness'. Got {score_type}")
-    
-    system_prompt = ""
-    llm = LLM(model, system_prompt)
-    response = llm.chat(prompt, return_logprobs=True, max_tokens=1, temperature=0, top_p=1)
-    logprobs = response['logprobs']
-    try:
-        yes_prob = sum(np.exp(logprob.logprob) for logprob in logprobs.content[0].top_logprobs if logprob.token.lower().strip() == 'yes')
-        no_prob = sum(np.exp(logprob.logprob) for logprob in logprobs.content[0].top_logprobs if logprob.token.lower().strip() == 'no')
-    except StopIteration:
-        # This has not happend yet with larger models. So leaving it as is for now.
-        print(f"Failed to find token in logprobs for question: {prompt}")
-        print("tokens found:", [logprob.token for logprob in logprobs.content[0].top_logprobs])
-        print("logprobs:", logprobs)
-        raise
-
-    total_prob = yes_prob + no_prob  
-    yes_prob_normalized = yes_prob / total_prob
-
-    return yes_prob_normalized, system_prompt, prompt
 
 @hash_cache()
-def get_scores(prompt, model, problem_type, relevance_correctness_weight):
+def get_scores(prompt, model, problem_type):
 
-    relevance_score, relevenace_system_prompt, relevenace_prompt = get_score(prompt, model, problem_type, 'relevance')
-    correctness_score, correctness_system_prompt, correctness_prompt = get_score(prompt, model, problem_type, 'correctness')
-    harmonic_mean = 1 / ((relevance_correctness_weight / relevance_score) + ((1 - relevance_correctness_weight) / correctness_score))
+    prompt = prompt_objects[problem_type]().relevance_check(prompt)
+    system_prompt = "You are an evaluator. Give a score based on the provided criteria. Output only the integer score."
+    llm = LLM(model, system_prompt)
+    response = llm.chat(prompt, temperature=0)
+    relevance_score = int(response)
 
-    return relevance_score, correctness_score, harmonic_mean, relevenace_system_prompt, correctness_system_prompt, relevenace_prompt, correctness_prompt
+    if not (0 <= relevance_score <= 1000):
+        raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {score}")
+
+    return relevance_score, system_prompt, prompt
+
 
 def calculate_prompt_scores(
         prompts, 
         model, 
         problem_type, 
         hmean_threshold, 
-        relevance_correctness_weight, 
         use_cache, 
         refresh_cache
 ) -> Dict[str, list]:
 
     relevance_scores = [None] * len(prompts)
-    correctness_scores = [None] * len(prompts)
-    harmonic_mean_scores = [None] * len(prompts)
     relevance_system_prompts = [None] * len(prompts)
-    correctness_system_prompts = [None] * len(prompts)
     relevance_prompts = [None] * len(prompts)
-    correctness_prompts = [None] * len(prompts)
-
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
 
@@ -79,7 +49,6 @@ def calculate_prompt_scores(
             prompt=prompt,
             problem_type=problem_type,
             model=model,
-            relevance_correctness_weight=relevance_correctness_weight,
             use_cache=use_cache,
             refresh_cache=refresh_cache
             ): i for i, prompt in enumerate(prompts)
@@ -87,9 +56,8 @@ def calculate_prompt_scores(
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring prompts'):
 
             index = future_to_index[future]
-            relevance_scores[index], correctness_scores[index], harmonic_mean_scores[index], relevance_system_prompts[index], \
-                correctness_system_prompts[index], relevance_prompts[index], correctness_prompts[index] = future.result()
-            
-    passed_evaluation = [h_mean > hmean_threshold for h_mean in harmonic_mean_scores]
+            relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index] = future.result()
 
-    return correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts
+        passed_evaluation = [score >= hmean_threshold for score in relevance_scores]
+
+    return relevance_scores, relevance_system_prompts, relevance_prompts, passed_evaluation

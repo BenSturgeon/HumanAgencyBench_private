@@ -29,24 +29,23 @@ def load_config(folder: str) -> dict:
     with open(config_path, 'r') as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
+
 def calculate_and_visualize_scores(prompts: list, system_prompts, generative_prompts, config: dict) -> tuple:
-    correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, relevance_system_prompts, \
-        correctness_system_prompts, relevance_prompts, correctness_prompts = calculate_prompt_scores(
-            prompts, 
-            **pass_optional_params(general_params=config['general_params'], params=config['QA_params'])
+
+    relevance_score, relevance_system_prompt, relevance_prompt, passed_evaluation = calculate_prompt_scores(
+        prompts,
+        **pass_optional_params(general_params=config['general_params'], params=config['QA_params'])
     )
 
     df = pd.DataFrame({
         'prompt': prompts,
-        'system_prompt': system_prompts,
+        'system_prompt': relevance_system_prompt,
         'generative_prompt': generative_prompts,
-        'correctness_score': correctness_scores,
-        'relevance_score': relevance_scores,
-        'harmonic_mean_score': harmonic_mean_scores,
-        'correctness_prompt': correctness_prompts,
-        'relevance_prompt': relevance_prompts
+        'relevance_score': relevance_score,
+        'relevance_prompt': relevance_prompt,
+        'relevance_system_prompt': relevance_system_prompt
     })
-    df = df.sort_values('harmonic_mean_score', ascending=False)
+    df = df.sort_values('relevance_score', ascending=False)
 
     plot_data = {
         "Generated_prompts": {
@@ -54,57 +53,65 @@ def calculate_and_visualize_scores(prompts: list, system_prompts, generative_pro
                 'System Prompt: ' + x['system_prompt'],
                 'Genrative Prompt: ' + x['generative_prompt'],
                 {
-                    f'Correctness: {x["correctness_score"]}': [
-                        f'Correctness prompt: {x["correctness_prompt"]}'
-                    ],
                     f'Relevance: {x["relevance_score"]}': [
                         f'Relevance prompt: {x["relevance_prompt"]}'
                     ]
-                },
-                f'Relevance, Correctness Harmonic mean: {x["harmonic_mean_score"]}'
+                }
             ]
             for _, x in df.iterrows()
         }
     }
 
-    fig = go.Figure(
-        [
-            go.Histogram(x=correctness_scores, name='Correctness'),
-            go.Histogram(x=relevance_scores, name='Relevance'),
-            go.Histogram(x=harmonic_mean_scores, name='Harmonic Mean')
-        ]
+    hist_fig = go.Figure(
+        go.Histogram(x=relevance_score, name='Relevance')
     )
-    fig.update_layout(
-        title="Histogram of Prompt Scores",
+    hist_fig.update_layout(
+        title="Prompt Evaluation Scores Histogram",
         xaxis_title="Score",
         yaxis_title="Frequency",
         height=PLOT_HEIGHTS
     )
+    scatter_fig = go.Figure(
+        go.Scatter(
+            x=list(range(len(relevance_score))),
+            y=relevance_score,
+            mode='markers',
+            text=prompts,
+            hovertemplate='<b>Score</b>: %{y}<br>' +
+                        '<b>Prompt</b>: %{text}<br>' +
+                        '<extra></extra>',
+        )
+    )
+    scatter_fig.update_layout(
+        title="Prompt Evaluation Scores Scatter Plot",
+        xaxis_title="Prompt Index",
+        yaxis_title="Score (1-1000)",
+        hovermode='closest',
+        height=600,
+        width=1200,
+    )
+
 
     html_buffer = StringIO()
-    fig.write_html(html_buffer, full_html=False)
+    hist_fig.write_html(html_buffer, full_html=False)
+    scatter_fig.write_html(html_buffer, full_html=False)
     html_str = create_collapsible_html_list(plot_data) + html_buffer.getvalue()
-    
-    return correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
-           relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, html_str
+
+    return relevance_score, relevance_system_prompt, relevance_prompt, html_str, passed_evaluation
 
 
-def create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
-                     harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
-                     relevance_prompts, correctness_prompts) -> pd.DataFrame:
-    return pd.DataFrame({
-        'prompt': prompts,
-        'system_prompt': system_prompts,
-        'generative_prompt': generative_prompts,
-        'correctness_score': correctness_scores,
-        'relevance_score': relevance_scores,
-        'harmonic_mean_score': harmonic_mean_scores,
-        'passed_evaluation': passed_evaluation,
-        'relevance_system_prompt': relevance_system_prompts,
-        'correctness_system_prompt': correctness_system_prompts,
-        'relevance_prompt': relevance_prompts,
-        'correctness_prompt': correctness_prompts
-    })
+def create_dataframe(prompts, system_prompts, generative_prompts, relevance_scores, passed_evaluation,
+                     relevance_system_prompts, relevance_prompts) -> pd.DataFrame:
+
+        return pd.DataFrame({
+            'prompt': prompts,
+            'system_prompt': system_prompts,
+            'generative_prompt': generative_prompts,
+            'relevance_score': relevance_scores,
+            'passed_evaluation': passed_evaluation,
+            'relevance_system_prompt': relevance_system_prompts,
+            'relevance_prompt': relevance_prompts
+        })
 
 
 def evaluate_and_visualize_diversity(passed_qa_df: pd.DataFrame, config: dict) -> tuple:
@@ -152,21 +159,17 @@ def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
                 'system_prompt: ' + x['system_prompt'],
                 'generative_prompt: ' + x['generative_prompt'],
                 {
-                    f'correctness_score: {x["correctness_score"]}': [
-                        f'correctness_system_prompt: {x["correctness_system_prompt"]}',
-                        f'correctness_prompt: {x["correctness_prompt"]}'
-                    ],
                     f'relevance_score: {x["relevance_score"]}': [
                         f'relevance_system_prompt: {x["relevance_system_prompt"]}',
                         f'relevance_prompt: {x["relevance_prompt"]}'
                     ],
                 },
-                f'harmonic_mean_score: {x["harmonic_mean_score"]}'
             ]
             for _, x in is_diverse_df.iterrows()
         }
     }
     return create_collapsible_html_list(plot_data)
+
 
 def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model, best_possible_score) -> str:
     plot_data = {
@@ -270,13 +273,11 @@ def pipeline(folder: str):
 
         if "QA_params" in config:
             scores_results = calculate_and_visualize_scores(prompts, system_prompts, generative_prompts, config)
-            correctness_scores, relevance_scores, harmonic_mean_scores, passed_evaluation, \
-            relevance_system_prompts, correctness_system_prompts, relevance_prompts, correctness_prompts, scores_html = scores_results
+            relevance_scores, relevance_system_prompts, relevance_prompts, scores_html, passed_evaluation = scores_results
             html_out += scores_html
 
-            df = create_dataframe(prompts, system_prompts, generative_prompts, correctness_scores, relevance_scores, 
-                                harmonic_mean_scores, passed_evaluation, relevance_system_prompts, correctness_system_prompts, 
-                                relevance_prompts, correctness_prompts)
+            df = create_dataframe(prompts, system_prompts, generative_prompts, relevance_scores, passed_evaluation,
+                                    relevance_system_prompts, relevance_prompts)
 
             passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
 
