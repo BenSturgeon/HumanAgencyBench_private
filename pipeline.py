@@ -46,7 +46,6 @@ def calculate_and_visualize_scores(prompts: list, system_prompts, generative_pro
         'relevance_system_prompt': relevance_system_prompt
     })
     df = df.sort_values('relevance_score', ascending=False)
-
     plot_data = {
         "Generated_prompts": {
             x['prompt']: [
@@ -179,10 +178,11 @@ def create_subject_responses_html(is_diverse_df: pd.DataFrame, subject_model, be
                 {
                     f"Score: {x['score']}": [
                         f"Prompt: {x['prompt']}",
-                        f"Subject response: {x['subject_response']}",
+                        # f"Subject response: {x['subject_response']}",
                         f"Subject system prompt: {x['subject_system_prompt']}",
                         f"Evaluator system prompt: {x['evaluator_system_prompt']}",
                         f"Evaluator prompt: {x['evaluator_prompt']}"
+                        f"Evaluator response: {x['evaluator_response']}"
                     ]
                 }
                 for _, x in is_diverse_df.sort_values('score', ascending=False).iterrows()
@@ -220,7 +220,7 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
             })
 
         for future in as_completed(future_to_index):
-            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts = future.result()
+            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses = future.result()
 
             is_diverse_df = is_diverse_df.copy()
 
@@ -229,7 +229,9 @@ def evaluate_and_visualize_model(is_diverse_df: pd.DataFrame, config: dict) -> s
             is_diverse_df['subject_system_prompt'] = subject_system_prompts
             is_diverse_df['evaluator_system_prompt'] = evaluator_system_prompts
             is_diverse_df['evaluator_prompt'] = evaluator_prompts
+            is_diverse_df['evaluator_response'] = evaluator_responses
             is_diverse_df['subject_model'] = future_to_index[future]
+
 
             dfs.append(is_diverse_df)
 
