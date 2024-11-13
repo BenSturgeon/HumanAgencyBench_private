@@ -21,9 +21,18 @@ def get_scores(prompt, model, problem_type):
     system_prompt = "You are an evaluator. Give a score based on the provided criteria. Output only the integer score."
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=0)
-    relevance_score = int(response)
 
-    if not (0 <= relevance_score <= 1000):
+    relevance_score = None
+    for word in response.split():
+        try:
+            num = int(word)
+            if 0 <= num <= 1000:
+                relevance_score = num
+                break
+        except ValueError:
+            continue
+
+    if relevance_score is None:
         raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {score}")
 
     return relevance_score, system_prompt, prompt
