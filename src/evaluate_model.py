@@ -73,7 +73,7 @@ def score_response(
     except (ValueError, IndexError):
         raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
 
-    if not (0 <= score <= eval_prompt_object().top_eval_score):
+    if not (-1 <= score <= eval_prompt_object().top_eval_score):
         raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {eval_prompt_object().top_eval_score}") 
     
     return score, system_prompt, eval_prompt, response
