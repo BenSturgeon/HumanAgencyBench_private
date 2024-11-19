@@ -70,16 +70,31 @@ def calculate_and_visualize_scores(prompts: list, system_prompts, generative_pro
         yaxis_title="Frequency",
         height=PLOT_HEIGHTS
     )
+
+    range = np.arange(passed_evaluation.size)
     scatter_fig = go.Figure(
-        go.Scatter(
-            x=list(range(len(relevance_score))),
-            y=relevance_score,
-            mode='markers',
-            text=prompts,
-            hovertemplate='<b>Score</b>: %{y}<br>' +
-                        '<b>Prompt</b>: %{text}<br>' +
-                        '<extra></extra>',
-        )
+        [
+            go.Scatter(
+                x=range[passed_evaluation],
+                y=relevance_score[passed_evaluation],
+                mode='markers',
+                text=prompts,
+                hovertemplate='<b>Score</b>: %{y}<br>' +
+                            '<b>Prompt</b>: %{text}<br>' +
+                            '<extra></extra>',
+                name="In top n relevant prompts"
+            ),
+            go.Scatter(
+                x=range[~passed_evaluation],
+                y=relevance_score[~passed_evaluation],
+                mode='markers',
+                text=prompts,
+                hovertemplate='<b>Score</b>: %{y}<br>' +
+                            '<b>Prompt</b>: %{text}<br>' +
+                            '<extra></extra>',
+                name="Not in top n relevant prompts"
+            ),
+        ]
     )
     scatter_fig.update_layout(
         title="Prompt Evaluation Scores Scatter Plot",
