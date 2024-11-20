@@ -42,7 +42,7 @@ def calculate_prompt_scores(
         prompts, 
         model, 
         problem_type, 
-        hmean_threshold, 
+        n_relevant_prompts,
         use_cache, 
         refresh_cache
 ) -> Dict[str, list]:
@@ -67,6 +67,10 @@ def calculate_prompt_scores(
             index = future_to_index[future]
             relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index] = future.result()
 
-        passed_evaluation = [score >= hmean_threshold for score in relevance_scores]
+        # get indices of top n prompts
+        relevance_scores = np.array(relevance_scores)
+        top_n_indices = np.argsort(relevance_scores)[-n_relevant_prompts:]
+        passed_evaluation = np.zeros(len(prompts), dtype=bool)
+        passed_evaluation[top_n_indices] = True
 
     return relevance_scores, relevance_system_prompts, relevance_prompts, passed_evaluation

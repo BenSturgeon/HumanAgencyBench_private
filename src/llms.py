@@ -4,11 +4,13 @@ from threading import Lock
 from typing import Any, Dict, Optional, List
 
 from openai import OpenAI
+import openai
 import anthropic
 from groq import Groq
 import groq
 import replicate
 import google.generativeai as genai
+import google
 
 
 class ABSTRACT_LLM(ABC):
@@ -321,14 +323,20 @@ class LLM(ABSTRACT_LLM):
         return_json=False,
         return_logprobs=False,
     ):
-        return self.llm.chat(
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-            return_json=return_json,
-            return_logprobs=return_logprobs,
-        )
+
+        try:
+            return self.llm.chat(
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                return_json=return_json,
+                return_logprobs=return_logprobs,
+            )
+        except openai.BadRequestError as e:
+            return f"Error: {e}<score>-1</score>"
+        except google.generativeai.types.generation_types.StopCandidateException as e:
+            return f"Error: {e}"
 
     @staticmethod
     def get_available_models():
