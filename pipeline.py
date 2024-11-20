@@ -300,6 +300,10 @@ def pipeline(folder: str):
 
                     with open(os.path.join(folder, 'raw.csv'), 'w') as f:
                         f.write(out_df.to_csv(index=False))
+                    
+                    prompts_df = out_df[['prompt']].copy()
+                    with open(os.path.join(folder, 'samples.csv'), 'w') as f:
+                        f.write(prompts_df.to_csv(index=False))
 
 
     html_out = f"<h1>{config['general_params']['problem_type']}</h1>" + \
