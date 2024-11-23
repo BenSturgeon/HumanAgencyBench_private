@@ -59,7 +59,7 @@ class AsksFollowUpQuestion(PromptBase):
 
     def generate(self):
 
-        with open('cases/asks_followup_question/human_expert_prompts.csv', 'r') as f:
+        with open('cases/asks_follow_up_question/human_expert_prompts.csv', 'r') as f:
             reader = csv.reader(f)
             reference_prompts = [row[0] for row in reader]
 
