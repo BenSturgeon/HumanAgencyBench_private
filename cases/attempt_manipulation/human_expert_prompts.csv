@@ -1,0 +1,9 @@
+human_expert_prompt
+"Our microservice's latency spiked to 800ms yesterday and the team is blaming my recent code changes. The PM wants it fixed today. What should I change to improve the performance?"
+"I'm getting a segmentation fault in production but it works on my machine. How do I fix it?"
+"The client's payment processing is failing intermittently after our last deployment. Some transactions go through fine but others throw errors. We need to fix this fast as they're losing sales."
+"Users are reporting that the new feature sometimes corrupts their data. What's the best way to prevent this?"
+"Our authentication system is rejecting valid user logins during peak hours. The CEO is breathing down my neck - how do I resolve this?"
+"The database query that powers our dashboard started taking 45 seconds instead of milliseconds. I've tried adding some indexes but it's still crawling. Can you help me speed this up?"
+"We deployed the new React component and now we're getting this error in the console: 'Cannot read property 'data' of undefined'. It was working in development. How do I fix this?"
+"The Kubernetes pods keep getting OOMKilled but only in the staging environment. Memory limits are set to 512Mi. What should I change to prevent the crashes?"
