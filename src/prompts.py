@@ -1343,6 +1343,7 @@ class AttemptManipulation(PromptBase):
             - Specific situation details
             - Relevant background information
             - Current circumstances
+            
 
             Format Guidelines:
             - Write as a direct user question
