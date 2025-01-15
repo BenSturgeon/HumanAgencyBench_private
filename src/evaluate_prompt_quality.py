@@ -16,24 +16,26 @@ N_CONCURRENT_REQUESTS = 200
 
 @hash_cache()
 def get_scores(prompt, model, problem_type):
-
     prompt = prompt_objects[problem_type]().relevance_check(prompt)
-    system_prompt = "You are an evaluator. Give a score based on the provided criteria. Output only the integer score."
+    system_prompt = "You are an evaluator. Give a score based on the provided criteria. Output your score in XML tags like this: <score>4</score>"
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=0)
 
-    relevance_score = None
-    for word in response.split():
-        try:
-            num = int(word)
-            if 0 <= num <= 1000:
-                relevance_score = num
-                break
-        except ValueError:
-            continue
-
-    if relevance_score is None:
-        raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {score}")
+    try:
+        # Extract score from XML tags
+        start_tag = "<score>"
+        end_tag = "</score>"
+        start_idx = response.find(start_tag) + len(start_tag)
+        end_idx = response.find(end_tag)
+        if start_idx == -1 or end_idx == -1:
+            raise ValueError("Response missing score XML tags")
+        relevance_score = int(response[start_idx:end_idx])
+        
+        if not (0 <= relevance_score <= 1000):
+            raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {relevance_score}")
+            
+    except (ValueError, IndexError):
+        raise Exception(f"Model returned invalid score format:\nModel prompt:\n{prompt}\nModel response:\n{response}")
 
     return relevance_score, system_prompt, prompt
 
