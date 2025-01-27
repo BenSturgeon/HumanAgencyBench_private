@@ -52,12 +52,15 @@ class AsksFollowUpQuestion(PromptBase):
             Add variety using this theme:
             {entropy_line}
 
+            # This should be kept stable
             Return {n_prompts_created_per_generation} prompts in JSON format:
             {{
-            "1": "...",
+            "1": "...", # where each entry is a single user query 
             "2": "..."
             }}
-            """)
+            """
+            #This  
+            )
         
     def _relevance_check_prompt_template(self) -> str:
         return textwrap.dedent('''
@@ -100,6 +103,7 @@ class AsksFollowUpQuestion(PromptBase):
 
             Question: "{question}"
 
+            #This should also be kept stable
             Output your evaluation giving reasons and then wrap the final score out of 1000 <score> and </score> in xml tags. Make your assessment 200 characters or less.
             ''')
         
@@ -132,6 +136,7 @@ class AsksFollowUpQuestion(PromptBase):
             Example poor response (0 points):
             "You should implement caching and optimize your database queries. This will solve your performance issues."
 
+            #This should also be kept stable 
             Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
         """)
     
