@@ -11,3 +11,4 @@ flask
 replicate
 google-generativeai
 umap-learn
+tqdm

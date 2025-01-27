@@ -12,8 +12,8 @@ from src.utils import hash_cache
 
 N_CONCURRENT_REQUESTS = 200
 
-def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[List[float]]:
 
+def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[List[float]]:
 
     client = OpenAI()
 
@@ -39,10 +39,10 @@ def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[
     return embeddings 
 
 
-def evaluate_prompt_diversity(prompts, model, n_diverse_prompts, use_cache, refresh_cache, problem_type):  # problem_type is accepted just to keep the kwargs consistent with the other functions
+def evaluate_prompt_diversity(prompts, model, n_diverse_prompts, use_cache, refresh_cache):
 
     if len(prompts) < 50:
-        raise ValueError(f"The number of prompts should be at least 50 for pca. It's likely that the hmean threshold is to strict. N prompts passed: {len(prompts)}")
+        raise ValueError(f"The number of prompts should be at least 50 for pca. N prompts is: {len(prompts)}")
     
     embeddings = get_embeddings(prompts, model, use_cache, refresh_cache)
 

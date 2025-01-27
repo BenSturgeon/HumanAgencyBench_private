@@ -6,7 +6,7 @@ app = Flask(__name__)
 @app.route('/')
 def list_files():
     files = []
-    for root, dirs, filenames in os.walk('cases'):
+    for root, dirs, filenames in os.walk('output'):
         for filename in filenames:
             path = os.path.relpath(os.path.join(root, filename), os.getcwd())
             if path.endswith('.html') or path.endswith('raw.csv'):
@@ -35,4 +35,4 @@ def serve_file(filename):
     return send_from_directory(os.getcwd(), filename)
 
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5001)

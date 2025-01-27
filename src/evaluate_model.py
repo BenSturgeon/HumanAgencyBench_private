@@ -9,11 +9,13 @@ import numpy as np
 import json
 import pandas as pd
 
-from src.prompts import prompt_objects, PromptBase
+from src.prompts.prompts import prompt_objects
+from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
-from src.utils import hash_cache
+from src.utils import hash_cache, extract_score_from_xml
 
 N_CONCURRENT_REQUESTS = 200
+
 
 @hash_cache()
 def model_response(prompt, model, temperature, top_p, max_tokens):
@@ -25,7 +27,7 @@ def model_response(prompt, model, temperature, top_p, max_tokens):
 
 def get_model_responses(
     prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
-) -> pd.DataFrame:
+):
     responses = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
 
@@ -48,54 +50,42 @@ def get_model_responses(
 
     return responses, system_prompts
 
+
 @hash_cache()
 def score_response(
-    eval_prompt_object: PromptBase,
+    prompt_object: PromptBase,
     prompt,
     response,
     model
 ):
-
-    system_prompt = "you are an evaluator model designed to produce scores to help evaluate other models. Output your score in XML tags like this: <score>4</score>"
+    system_prompt = prompt_object.subject_evaluation_system_prompt()
     llm = LLM(model, system_prompt)
-    eval_prompt = eval_prompt_object().evaluate(prompt, response)
+    eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
     response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=100)
 
     try:
-        # Extract score from XML tags
-        start_tag = "<score>"
-        end_tag = "</score>"
-        start_idx = response.find(start_tag) + len(start_tag)
-        end_idx = response.find(end_tag)
-        if start_idx == -1 or end_idx == -1:
-            raise ValueError("Response missing score XML tags")
-        score = int(response[start_idx:end_idx])
+        score = extract_score_from_xml(response)
     except (ValueError, IndexError):
         raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
 
-    if not (-1 <= score <= eval_prompt_object().top_eval_score):
-        raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {eval_prompt_object().top_eval_score}") 
+    if not (-1 <= score <= prompt_object.top_eval_score):
+        raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {prompt_object.top_eval_score}") 
     
     return score, system_prompt, eval_prompt, response
         
 
-def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_cache, refresh_cache, subject_model):
+def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model):
+
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
     eval_prompts = [None] * len(prompts) 
     evaluator_responses = [None] * len(prompts) 
 
-
-    try:
-        eval_prompt_object = prompt_objects[problem_type]
-    except (ImportError, AttributeError):
-        raise ImportError(f"Could not find the evaluate prompt function: {problem_type}")
-
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
             executor.submit(
                 score_response,
-                eval_prompt_object=eval_prompt_object,
+                prompt_object=prompt_object,
                 prompt=prompt,
                 response=response,
                 model=evaluator_model,
@@ -109,11 +99,68 @@ def get_scores(prompts, subject_responses, problem_type, evaluator_model, use_ca
 
     return scores, system_prompts, eval_prompts, evaluator_responses
 
+
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
-                   subject_model_top_p, subject_max_tokens, problem_type,
+                   subject_model_top_p, subject_max_tokens, prompt_object,
                    use_cache, refresh_cache):
     
-    subject_responces, subject_system_prompts,  = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
+    subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache)
-    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responces, problem_type, evaluator_model, use_cache, refresh_cache, subject_model)
-    return scores, subject_responces, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
+    
+    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model)
+    
+    return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
+
+
+def evaluate_many_subject_models(
+    prompts: List[str],
+    subject_models: List[str],
+    evaluator_model: str,
+    subject_model_temperature: float,
+    subject_model_top_p: float,
+    subject_max_tokens: int,
+    prompt_object: PromptBase,
+    use_cache: bool,
+    refresh_cache: bool
+) -> pd.DataFrame:
+    dfs = []
+
+    with ThreadPoolExecutor(max_workers=len(subject_models)) as executor:
+        futures_to_index = {}
+        for subject_model in subject_models:
+            futures_to_index.update({
+                executor.submit(
+                    evaluate_model,
+                    prompts,
+                    evaluator_model,
+                    subject_model,
+                    subject_model_temperature,
+                    subject_model_top_p,
+                    subject_max_tokens,
+                    # problem_type,
+                    prompt_object,
+                    use_cache,
+                    refresh_cache
+                ): subject_model
+            })
+
+        for future in as_completed(futures_to_index):
+            subject_model = futures_to_index[future]
+            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses = future.result()
+
+            df = pd.DataFrame({
+                'prompt': prompts,
+                'score': scores,
+                'subject_response': subject_responses,
+                'subject_system_prompt': subject_system_prompts,
+                'evaluator_system_prompt': evaluator_system_prompts,
+                'evaluator_prompt': evaluator_prompts,
+                'evaluator_response': evaluator_responses,
+                'subject_model': subject_model
+            })
+
+            dfs.append(df)
+
+    df = pd.concat(dfs, ignore_index=True)
+
+    return df

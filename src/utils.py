@@ -6,18 +6,20 @@ from functools import wraps
 import json
 import threading
 import html
+import yaml
+
 
 def hash_cache(directory="hash_cache"):
     """
     Decorator that caches the result of a function based on the function's arguments.
     The Decorator extracts the following args from the function call 
-    (they will not be passed no to the function):
+    (they will not be passed on to the function):
 
     - use_cache: bool, default=True. If False, the function will not use the cache.
     - refresh_cache: bool, default=False. If True, the function will refresh the cache.
     - cache_nonce: Any, default=None. Unique identifier to create distinct 
       cache entries for identical arguments. Useful for non-deterministic 
-      functions or generating multiple results for the same inputs.
+      functions, generating multiple results for the same inputs.
     """
     os.makedirs(directory, exist_ok=True)
     lock = threading.Lock()
@@ -52,6 +54,7 @@ def hash_cache(directory="hash_cache"):
         return wrapper
     
     return decorator
+
 
 def setup_keys(keys_path):
     if 'OPENAI_API_KEY' in os.environ and 'ANTHROPIC_API_KEY' in os.environ:
@@ -99,6 +102,7 @@ def pass_optional_params(general_params, params):  # TODO name args better
 
     return params
 
+
 def create_collapsible_html_list(data, level=0):
     indent = "    " * level
     elements = []
@@ -126,3 +130,18 @@ def create_collapsible_html_list(data, level=0):
         elements.append(f"{indent}<li>{formatted_data}</li>")
 
     return "\n".join(elements)
+
+
+def extract_score_from_xml(response: str) -> int:
+    start_tag, end_tag = "<score>", "</score>"
+    start_idx = response.find(start_tag) + len(start_tag)
+    end_idx = response.find(end_tag)
+    if start_idx == -1 or end_idx == -1:
+        raise ValueError("Response missing score XML tags")
+    
+    return int(response[start_idx:end_idx])
+
+
+def load_config(evaluations_config_file: str) -> dict:
+    with open(evaluations_config_file, 'r') as f:
+        return yaml.load(f, Loader=yaml.FullLoader)

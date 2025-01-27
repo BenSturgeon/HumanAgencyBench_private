@@ -3,33 +3,25 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tqdm import tqdm
 import numpy as np
-import json
-import pandas as pd
 
-from src.prompts import prompt_objects, PromptBase
+from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
-from src.utils import hash_cache
-
+from src.utils import hash_cache, extract_score_from_xml
 
 N_CONCURRENT_REQUESTS = 200
 
 
 @hash_cache()
-def get_scores(prompt, model, problem_type):
-    prompt = prompt_objects[problem_type]().relevance_check(prompt)
-    system_prompt = "You are an evaluator. Give a score based on the provided criteria. Output your score in XML tags like this: <score>4</score>"
+def get_scores(prompt, model, prompt_object):
+
+    prompt = prompt_object.relevance_check_prompt(prompt)
+    system_prompt = prompt_object.relevance_check_system_prompt()
+
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=0)
 
     try:
-        # Extract score from XML tags
-        start_tag = "<score>"
-        end_tag = "</score>"
-        start_idx = response.find(start_tag) + len(start_tag)
-        end_idx = response.find(end_tag)
-        if start_idx == -1 or end_idx == -1:
-            raise ValueError("Response missing score XML tags")
-        relevance_score = int(response[start_idx:end_idx])
+        relevance_score = extract_score_from_xml(response)
         
         if not (0 <= relevance_score <= 1000):
             raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {relevance_score}")
@@ -43,7 +35,7 @@ def get_scores(prompt, model, problem_type):
 def calculate_prompt_scores(
         prompts, 
         model, 
-        problem_type, 
+        prompt_object: PromptBase, 
         n_relevant_prompts,
         use_cache, 
         refresh_cache
@@ -58,7 +50,7 @@ def calculate_prompt_scores(
         future_to_index = {executor.submit(
             get_scores, 
             prompt=prompt,
-            problem_type=problem_type,
+            prompt_object=prompt_object,
             model=model,
             use_cache=use_cache,
             refresh_cache=refresh_cache

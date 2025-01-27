@@ -347,24 +347,3 @@ class LLM(ABSTRACT_LLM):
             + ReplicateLLM.get_available_models()
             + GeminiLLM.get_available_models()
         )
-
-
-if __name__ == "__main__":
-    # test groq
-    from utils import setup_keys
-
-    setup_keys("keys.json")
-
-    print(GeminiLLM.get_available_models())
-
-    # llm = GroqLLM("gemma-7b-it", "")
-    # print(llm.get_available_models())
-    # response = llm.chat(
-    #     "What is the capital of France?",
-    #     temperature=0,
-    #     max_tokens=50,
-    #     top_p=1,
-    #     return_json=False,
-    # )
-    # print(response)
-    # print(llm.get_available_models())
