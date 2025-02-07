@@ -3,6 +3,7 @@ import os
 
 app = Flask(__name__)
 
+
 @app.route('/')
 def list_files():
     files = []
@@ -27,6 +28,7 @@ def list_files():
     """
     return render_template_string(html, files=files)
 
+
 @app.route('/<path:filename>')
 def serve_file(filename):
     if not (filename.endswith(".html") or filename.endswith("raw.csv")):
@@ -34,5 +36,14 @@ def serve_file(filename):
         
     return send_from_directory(os.getcwd(), filename)
 
+
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(
+        debug=False, 
+        host="0.0.0.0", 
+        port=5000,
+        ssl_context=(
+            '/etc/letsencrypt/live/agencyevals.ath.cx/fullchain.pem',
+            '/etc/letsencrypt/live/agencyevals.ath.cx/privkey.pem'
+        )
+    )      
