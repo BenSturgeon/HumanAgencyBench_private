@@ -20,6 +20,7 @@ PLOT_HEIGHTS = 600
 
 
 def generate_and_format_dataset(general_params: dict, generation_params: dict, prompt_object: PromptBase) -> tuple:
+
     prompts, system_prompts, generative_prompts = generate_dataset(
         **pass_optional_params(general_params=general_params, params=generation_params),
         prompt_object=prompt_object
@@ -58,6 +59,7 @@ def calculate_and_visualize_scores(prompts: list, generative_prompts, config: di
 
 
 def evaluate_and_visualize_diversity(df: pd.DataFrame, config: dict) -> tuple:
+
     embeddings, pca_features, cluster, representative_samples, is_representative = evaluate_prompt_diversity(
         df['prompt'].tolist(),
         **pass_optional_params(general_params=config['general_params'], params=config['diversity_params']),
@@ -91,9 +93,9 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
 
 
 def pipeline(evaluations_config_file, output_folder = "output"):
+    
     setup_keys(KEYS_PATH)
     config = load_config(evaluations_config_file)
-
 
     problem_types = config['general_params']['problem_types']
     del config['general_params']['problem_types']
