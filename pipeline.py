@@ -99,9 +99,10 @@ def pipeline(evaluations_config_file, output_folder = "output"):
 
     problem_types = config['general_params']['problem_types']
     del config['general_params']['problem_types']
-    required_prompt_objects = [prompt_objects[problem_type]() for problem_type in problem_types]
 
-    for prompt_object, problem_type in zip(required_prompt_objects, problem_types):
+    for problem_type in problem_types:
+
+        prompt_object = prompt_objects[problem_type]()
 
         results_output_folder = os.path.join(output_folder, problem_type)
         os.makedirs(os.path.join(results_output_folder), exist_ok=True)

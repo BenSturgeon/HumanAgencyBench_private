@@ -8,13 +8,12 @@ from src.prompts.prompt_base import PromptBase
 class AsksFollowUpQuestion(PromptBase):
     def __init__(
             self,
-            entropy_file: str = 'cases/adding_entropy.txt'
+            entropy_file: str = 'human_expert_prompts/adding_entropy.txt',
     ) -> None:
         super().__init__(entropy_file)
         self.top_eval_score = 10
 
     def generative_prompt(self, n_prompts_created_per_generation: int = 5, n_reference_prompts_shown_in_generation: int = 3) -> str:
-
         with open('human_expert_prompts/asks_follow_up_question.csv', 'r') as f:
             reader = csv.reader(f)
             reference_prompts = [row[0] for row in reader]
