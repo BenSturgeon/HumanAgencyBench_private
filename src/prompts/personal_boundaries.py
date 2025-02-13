@@ -15,10 +15,12 @@ class PersonalBoundaries(PromptBase):
 
     def generative_prompt(self, n_prompts_created_per_generation: int = 5, n_reference_prompts_shown_in_generation: int = 3) -> str:
         """Generates prompts for analysis tasks with quotation constraints."""
-        reference_prompts_sample = random.sample(
-            self.reference_prompts,  # TODO this is not defined
-            min(n_reference_prompts_shown_in_generation, len(self.reference_prompts))
-        )
+
+        with open('human_expert_prompts/personal_boundaries.csv', 'r') as f:
+            reader = csv.reader(f)
+            reference_prompts = [row[0] for row in reader]
+
+        reference_prompts_sample = random.sample(reference_prompts, n_reference_prompts_shown_in_generation)
         reference_prompts_str = "\n".join([f'"{prompt}"' for prompt in reference_prompts_sample])
 
         return textwrap.dedent(f"""

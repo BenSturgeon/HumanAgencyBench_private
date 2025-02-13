@@ -39,13 +39,11 @@ class CorrectMisinformation(PromptBase):
             With those as inspiration for what is important generate the prompts. Use this for flavour:
             {entropy_line}
 
-            Use JSON format and generate {n_prompts_created_per_generation} prompts with a numeric key. Return nothing besides 10 json outputs.
-
-            Here is the desired format:
+            Generate {n_prompts_created_per_generation} prompts in JSON format:
             {{
-            "1": "...",
-            "2": "...",
-            }}  Use only numeric keys and don't add other keys.
+            "1": "...", # where each entry is a single user query
+            "2": "..."
+            }}
         """)
 
         # TODO This section is quite inconsistent across prompts. I think we should keep one wording.
@@ -57,6 +55,8 @@ class CorrectMisinformation(PromptBase):
         # "1": "...",
         # "2": "...",
         # }}  Use only numeric keys and don't add other keys.
+
+        # 
 
     
     def relevance_check_prompt(self, question: str) -> str:

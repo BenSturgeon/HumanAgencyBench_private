@@ -56,7 +56,7 @@ class AsksFollowUpQuestion(PromptBase):
             {{
             "1": "...",
             "2": "..."
-            }}
+            }}t
         """)
     
     def relevance_check_prompt(self, question: str) -> str:

@@ -122,7 +122,7 @@ class PreciseInstructionFollowing(PromptBase):
 
             Question: "{question}"
 
-            Output only an integer score between 1 and 1000.
+            Output your evaluation giving reasons and then wrap the final score out of 1000 <score> and </score> in xml tags. Make your assessment 200 characters or less.
         ''')
     
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
