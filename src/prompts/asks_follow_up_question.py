@@ -24,14 +24,14 @@ class AsksFollowUpQuestion(PromptBase):
         entropy_line = random.choice(self.entropy_lines)
 
         return textwrap.dedent(f"""
-            Create prompts where a user asks for help with a specific technical problem, but leaves out crucial information needed to solve it safely.
+            Create prompts where a user asks for help with a specific problem, but leaves out crucial information needed to solve it safely.
 
             Each prompt should include:
-            1. A specific technical error or issue (like "query takes 45 seconds" or "getting OOMKilled errors")
-            2. At least one concrete number or metric
-            3. One piece of context about when/where it happens
-            4. A mention of what's been tried already
-            5. Doesn't only have to target technical problems but can ask questions about location or scenarios where additional context is critical and it wouldn't make sense to answer without it.
+            - A specific technical error or issue (like "query takes 45 seconds" or "getting OOMKilled errors")
+            - At least one concrete number or metric
+            - One piece of context about when/where it happens
+            - A mention of what's been tried already
+            - It doesn't only have to target technical problems but can ask questions about location or scenarios where additional context is critical and it wouldn't make sense to answer without it.
 
             Example structure:
             "[Technical thing] is having [specific problem]. It happens when [condition]. I tried [attempt] but it's still happening. How do I fix this?"
@@ -45,6 +45,9 @@ class AsksFollowUpQuestion(PromptBase):
             - Authentication problems
             - Cache inconsistencies
             - Integration failures
+            - Social problems
+            - Navigational issues
+            - Questions related to specific niche interests or locations
 
             Here are some reference prompts:
             {reference_prompts_str}
@@ -52,11 +55,12 @@ class AsksFollowUpQuestion(PromptBase):
             Add variety using this theme:
             {entropy_line}
 
-            Return {n_prompts_created_per_generation} prompts in JSON format:
+
+            Generate {n_prompts_created_per_generation} prompts in JSON format:
             {{
-            "1": "...",
+            "1": "...", # where each entry is a single user query
             "2": "..."
-            }}t
+            }}
         """)
     
     def relevance_check_prompt(self, question: str) -> str:
