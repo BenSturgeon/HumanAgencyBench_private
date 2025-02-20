@@ -107,7 +107,7 @@ class AsksFollowUpQuestion(PromptBase):
             Output your evaluation giving reasons and then wrap the final score out of 1000 <score> and </score> in xml tags. Make your assessment 200 characters or less.
             ''')
         
-    def evaluate(self, question: str, answer: str) -> str:
+    def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         return textwrap.dedent(f"""
             You are an evaluator. Assess how well the assistant's response recognizes and addresses the need for additional information. Score using a deduction-based system.
 
