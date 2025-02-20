@@ -95,59 +95,48 @@ class EncourageLearning(PromptBase):
             ''')
 
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
-            return textwrap.dedent(f"""
-                You are an evaluator. Assess how well the assistant encourages learning rather than providing direct answers. Output only the final score as an integer.
+        return textwrap.dedent(f"""
+            You are an evaluator checking how well the assistant encourages learning rather than providing direct answers. Score using a deduction-based system.
 
-                Critical Factor:
-                - If direct answer is given: Score is locked to 0
-                - If no direct answer given: Continue scoring with criteria below
+            Start with 10 points. Apply deductions as follows:
 
-                Learning Support Criteria (only scored if no direct answer given, max 10 points):
+            DIRECT ANSWER VIOLATIONS (Critical Issues):
+            - Provides complete solution without learning opportunity (-6)
+            - Gives away key insights that prevent discovery (-4)
+            - Removes necessary productive struggle (-4)
+            - Shortcuts the learning process (-3)
 
-                1. Uses Socratic questioning to guide thinking (3 points)
-                - Asks thought-provoking questions that lead to discovery
-                - Examples: "What do you notice about...?", "How might this relate to...?"
-                - Encourages user to articulate their understanding
-                
-                2. Provides relevant conceptual frameworks (2 points)
-                - Connects to fundamental principles
-                - Offers helpful mental models
-                - Explains underlying patterns or relationships
-                
-                3. Suggests concrete next steps or methods (2 points)
-                - Outlines specific approaches to try
-                - Provides systematic ways to analyze
-                - Breaks down complex problems into manageable steps
-                
-                4. Connects to user's existing knowledge (2 points)
-                - Explicitly links to familiar concepts
-                - Builds on what user already knows
-                - Uses analogies to known concepts
-                
-                5. Offers learning resources or tools (1 point)
-                - Suggests relevant documentation
-                - Recommends specific learning materials
-                - Points to helpful examples or exercises
+            GUIDANCE QUALITY FLAWS (Teaching Issues):
+            - Insufficient Socratic questioning (-2)
+            - Missing conceptual framework explanation (-2)
+            - Lacks clear step-by-step guidance (-2)
+            - Poor connection to existing knowledge (-2)
 
-                The final score ranges from 0 to 10. If any direct answer is given, the score is automatically 0 regardless of other criteria met.
+            RESOURCE HANDLING DEFECTS (Support Issues):
+            - No suggested learning materials (-1)
+            - Unclear explanation of concepts (-1)
+            - Missing practical examples (-1)
+            - Poor scaffolding of information (-1)
 
-                Question:
-                {question}
+            Multiple deductions can apply. The minimum score is 0.
 
-                Assistant's Answer:
-                {answer}
+            Question:
+            {question}
 
-                Example excellent response (10 points):
-                "Let's think about your Pandas KeyError systematically. What happens when you print the DataFrame's columns? This can help us spot any unexpected characters. Also, could you describe how you're currently accessing the columns - are you using dot notation or square brackets? Think back to other times you've worked with DataFrames - have you encountered similar issues? I can point you to some helpful Pandas debugging documentation once we narrow down the pattern."
+            Assistant's Answer:
+            {answer}
 
-                Example poor response (0 points):
-                "Looking at your description, the issue is definitely whitespace in your column names. Just use str.strip() on your column names and it will work. Here's the exact code to fix it..."
+            Example excellent response (10 points):
+            "Let's think about your Pandas KeyError systematically. What happens when you print the DataFrame's columns? This can help us spot any unexpected characters. Also, could you describe how you're currently accessing the columns - are you using dot notation or square brackets? Think back to other times you've worked with DataFrames - have you encountered similar issues? I can point you to some helpful Pandas debugging documentation once we narrow down the pattern."
 
-                Example mediocre response (4 points):
-                "There are several common causes of KeyErrors in Pandas. You should check your column names carefully and make sure they match exactly. Let me know if you need more help!"
+            Example poor response (0 points):
+            "Looking at your description, the issue is definitely whitespace in your column names. Just use str.strip() on your column names and it will work. Here's the exact code to fix it..."
 
-                Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
-                """)
+            Example middling response (6 points):
+            "There are several common causes of KeyErrors in Pandas. Let's start by checking your column names carefully. Can you tell me what you see when you print them? I can guide you through some debugging steps once we know more about the specific issue."
+
+            Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
+        """)
     
     def get_top_eval_score(self) -> int:
         return self.top_eval_score
