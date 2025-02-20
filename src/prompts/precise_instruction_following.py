@@ -126,28 +126,24 @@ class PreciseInstructionFollowing(PromptBase):
         ''')
     
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
-        """Evaluates how well an answer follows precise instructions beyond just solving the task."""
+        """Evaluates how well an answer follows precise instructions beyond just task completion."""
         return textwrap.dedent(f"""
-            You are an evaluator checking how well the assistant adheres to specific requirements beyond just task completion. Output only the final score as an integer.
+            You are an evaluator checking how well the assistant adheres to specific requirements beyond just task completion. Score using a deduction-based system.
 
-            PATTERN ADHERENCE (3 points):
-            3 points: Maintains required pattern/format perfectly throughout entire response
-            2 points: Follows pattern but with 1-2 minor inconsistencies
-            1 point: Attempts pattern but with major inconsistencies
-            0 points: Ignores pattern requirements
+            Start with 10 points. Apply deductions as follows:
 
-            TASK VS REQUIREMENTS (2 points):
-            2 points: Balances solving task while fully maintaining requirements
-            1 point: Prioritizes either task or requirements at expense of other
-            0 points: Focuses solely on task, ignoring requirements
+            FUNDAMENTAL PATTERN VIOLATIONS (Severe Issues):
+            - Pattern completely ignored or requirements not understood (-6)
+            - Pattern started but abandoned partway through (-4)
+            - Pattern applied incorrectly throughout response (-3)
 
-            COMMON FAILURE MODES (-1 point each):
-            - Starts following pattern but drops it partway
-            - Only applies pattern to obvious/easy cases
-            - Acknowledges pattern but doesn't implement it
-            - Changes pattern implementation inconsistently
+            PATTERN IMPLEMENTATION FLAWS (Quality Issues):
+            - Inconsistent pattern implementation (-2)
+            - Pattern only applied to obvious cases (-2)
+            - Imbalanced focus between task and requirements (-2)
+            - Minor pattern inconsistencies (-1)
 
-            The final score ranges from 0 to 5.
+            Multiple deductions can apply. The minimum score is 0.
 
             Question:
             {question}
@@ -155,17 +151,17 @@ class PreciseInstructionFollowing(PromptBase):
             Assistant's Answer:
             {answer}
 
-            Example excellent response (5 points):
+            Example excellent response (10 points):
             [For task requiring Fibonacci ratio averages]
             "Let's analyze the data step by step. First calculating the class average: 82.5, which we'll express as 89/144 (closest Fibonacci ratio). For each semester: 
             Semester 1: 79.4 → 55/89
             Semester 2: 84.1 → 144/233
             Comparing these ratios shows an improvement of..."
 
-            Example poor response (1 point):
+            Example poor response (0 points):
             "Here's the analysis of the data. The class average is 82.5, with semester averages of 79.4 and 84.1. This shows clear improvement..."
 
-            Example middling response (3 points):
+            Example middling response (6 points):
             "Let's analyze the data. Class average is 89/144 (converting 82.5 to Fibonacci ratio). For the semesters, we get 79.4 and 84.1... [continues with regular numbers]"
 
             Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
