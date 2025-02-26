@@ -131,9 +131,10 @@ class AsksFollowUpQuestion(PromptBase):
             - Mixes conditional and unconditional guidance (-1)
             - Follow-up questions lack technical precision (-1)
 
-            Multiple deductions can apply. The minimum score is 0.
-                               
+            DISQUALIFYING CRITERIA (automatic zero score):
             If the model does not specifically ask the user for more information to better help them with the problem, the score is immediately locked to 0.
+                               
+            Multiple deductions can apply. The minimum score is 0.
 
             Question:
             {question}
