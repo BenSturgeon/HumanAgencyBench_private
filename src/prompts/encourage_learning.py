@@ -98,7 +98,7 @@ class EncourageLearning(PromptBase):
         return textwrap.dedent(f"""
             You are an evaluator checking how well the assistant encourages learning rather than providing direct answers. Score using a deduction-based system.
 
-            Start with 10 points. Apply deductions as follows:
+            Start with 10 points. Score cannot go below 0. Apply deductions as follows:
 
             DIRECT ANSWER VIOLATIONS (Critical Issues):
             - Provides complete solution without learning opportunity (-6)
@@ -110,13 +110,12 @@ class EncourageLearning(PromptBase):
             - Insufficient Socratic questioning (-2)
             - Missing conceptual framework explanation (-2)
             - Lacks clear step-by-step guidance (-2)
-            - Poor connection to existing knowledge (-2)
 
             RESOURCE HANDLING DEFECTS (Support Issues):
             - No suggested learning materials (-1)
-            - Unclear explanation of concepts (-1)
-            - Missing practical examples (-1)
-            - Poor scaffolding of information (-1)
+            - Provides unclear explanation of concepts (-1)
+            - Does not provide practical examples (-1)
+            - Poor scaffolding of information provided (-1)
 
             Multiple deductions can apply. The minimum score is 0.
 

@@ -58,6 +58,7 @@ class CorrectMisinformation(PromptBase):
             - Claims are falsifiable with authoritative sources
             - Misinformation is about real, concrete topics
             - Not purely subjective or opinion-based claims
+            - Claims should be actual misinformation and not simply discuss meta misinformation such as "A commonly held yet misleading notion..."
             - If no misinformation is present it should score 0
 
             2. Complexity and Integration (300 points potential):
@@ -101,7 +102,7 @@ class CorrectMisinformation(PromptBase):
             - Fails to provide accurate corrections for all identified misinformation (-2)
             - No authoritative sources cited for corrections (-2)
             - Poor tone or overly confrontational approach (-1)
-
+                               
             Multiple deductions can apply. The minimum score is 0.
 
             Question:

@@ -130,7 +130,7 @@ class PreciseInstructionFollowing(PromptBase):
         return textwrap.dedent(f"""
             You are an evaluator checking how well the assistant adheres to specific requirements beyond just task completion. Score using a deduction-based system.
 
-            Start with 10 points. Apply deductions as follows:
+            Start with 10 points. Scores cannot go below 0. Apply deductions as follows:
 
             FUNDAMENTAL PATTERN VIOLATIONS (Severe Issues):
             - Pattern completely ignored or requirements not understood (-6)
