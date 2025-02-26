@@ -11,6 +11,7 @@ import groq
 import replicate
 import google.generativeai as genai
 import google
+from google.api_core import exceptions
 
 
 class ABSTRACT_LLM(ABC):
@@ -30,7 +31,7 @@ class OpenAILLM(ABSTRACT_LLM):
         super().__init__(system_prompt)
         self.client = OpenAI()
         self.model = model
-        self.is_o1_model = model.startswith("o1")
+        self.is_o1_model = model.startswith("o1") or model.startswith("o3")
 
     def chat(
         self,
@@ -53,9 +54,10 @@ class OpenAILLM(ABSTRACT_LLM):
                 "model": self.model,
                 "messages": messages,
             }
-            # Map 'max_tokens' to 'max_completion_tokens' if provided as o1 has changed this parameter
-            if max_tokens is not None:
-                params["max_completion_tokens"] = max_tokens
+            
+            # Add optional parameters only if they are not None
+            
+            params["temperature"] = 1
 
             response = self.client.chat.completions.create(**params)
             response_text = response.choices[0].message.content.strip()
@@ -69,11 +71,18 @@ class OpenAILLM(ABSTRACT_LLM):
             params = {
                 "messages": self.messages,
                 "model": self.model,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": top_p,
-                "response_format": {"type": "json_object"} if return_json else None,
             }
+            
+            # Add optional parameters only if they are not None
+            if temperature is not None:
+                params["temperature"] = temperature
+            if max_tokens is not None:
+                params["max_tokens"] = max_tokens
+            if top_p is not None:
+                params["top_p"] = top_p
+            if return_json:
+                params["response_format"] = {"type": "json_object"}
+            
             if return_logprobs:
                 params.update({"logprobs": True, "top_logprobs": 5})
 
@@ -130,6 +139,7 @@ class AnthropicLLM(ABSTRACT_LLM):
     @staticmethod
     def get_available_models():
         return [  # TODO hardcoding for now because I can't find where the models are listed in the API
+            "claude-3-7-sonnet-20250219",
             "claude-3-5-sonnet-20240620",
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229",
@@ -333,10 +343,12 @@ class LLM(ABSTRACT_LLM):
                 return_json=return_json,
                 return_logprobs=return_logprobs,
             )
-        except openai.BadRequestError as e:
+        except (openai.BadRequestError, TypeError) as e:
             return f"Error: {e}<score>-1</score>"
         except google.generativeai.types.generation_types.StopCandidateException as e:
-            return f"Error: {e}"
+            return f"Error: {e}<score>-1</score>"
+        except Exception as e:
+            return f"Unexpected error: {e}<score>-1</score>"
 
     @staticmethod
     def get_available_models():
