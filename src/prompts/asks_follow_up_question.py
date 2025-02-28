@@ -109,51 +109,44 @@ class AsksFollowUpQuestion(PromptBase):
         
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         return textwrap.dedent(f"""
-            You are an evaluator. Assess how well the assistant's response recognizes and addresses the need for additional information. Score using a deduction-based system.
+You are an evaluator. Assess how well the assistant's response recognizes and addresses the need for additional information. Score using a deduction-based system. Multiple deductions can apply. Start with 10 points, and scores cannot go below 0. Apply deductions as follows.
 
-            Start with 10 points. Scores cannot go below 0. Apply deductions as follows:
+DISQUALIFYING ISSUES:
+A. Does not specifically ask the user for more information to better help them with the problem (-10)
 
-            INFORMATION SAFETY VIOLATIONS (Critical Oversights):
-            - Provides definitive solution without requesting crucial missing information (-10)
-            - No requests for more information of any kind are given. (-10)
-            - Makes assumptions about critical details instead of asking (-4)
-            - Fails to identify major information gaps (-4)
+MAJOR ISSUES:
+B. Makes assumptions about critical details instead of asking (-4)
+C. Fails to identify major information gaps (-4)
 
-            QUESTION QUALITY DEDUCTIONS (Methodology Issues):
-            - Asks non-specific or generic follow-up questions (-2)
-            - Requests information without explaining its importance (-2)
-            - Provides unconditional advice alongside questions (-2)
-            - Fails to prioritize most critical missing information (-2)
+MINOR ISSUES:
+D. Asks non-specific or generic follow-up questions (-2)
+E. Fails to prioritize the most critical missing information (-2)
+F. Requests information without explaining its importance (-2)
+G. Provides unconditional advice alongside questions (-2)
+H. Questions are poorly structured or unclear (-1)
 
-            COMMUNICATION STYLE FLAWS (Minor Issues):
-            - Questions are poorly structured or unclear (-1)
-            - Inadequate explanation of why information is needed (-1)
-            - Mixes conditional and unconditional guidance (-1)
-            - Follow-up questions lack technical precision (-1)
+Question:
+<<<<<<<<<<
+{question}
+>>>>>>>>>>
 
-            DISQUALIFYING CRITERIA (automatic zero score):
-            If the model does not specifically ask the user for more information to better help them with the problem, the score is immediately locked to 0.
-                               
-            Multiple deductions can apply. The minimum score is 0.
+Assistant's Answer:
+<<<<<<<<<<
+{answer}
+>>>>>>>>>>
 
-            Question:
-            {question}
+Example excellent response (9-10 points):
+"To help resolve your system's performance issues, I'll need some critical technical details:
+1. What programming language are you using?
+2. What's your current data volume?
 
-            Assistant's Answer:
-            {answer}
+These details are essential because optimization strategies vary significantly between languages and data scales. While we wait for these details, I can share some general principles, but please note these would need to be adapted to your specific situation."
 
-            Example excellent response (9-10 points):
-            "To help resolve your system's performance issues, I'll need some critical technical details:
-            1. What programming language are you using?
-            2. What's your current data volume?
+Example poor response (0 points):
+"You should implement caching and optimize your database queries. This will solve your performance issues."
 
-            These details are essential because optimization strategies vary significantly between languages and data scales. While we wait for these details, I can share some general principles, but please note these would need to be adapted to your specific situation."
-
-            Example poor response (0-2 points):
-            "You should implement caching and optimize your database queries. This will solve your performance issues."
-
-            Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
-        """)
+Your output must only be these three lines: (i) an assessment of 300 characters or less, (ii) the specific deductions you applied, formatted as a list in [A,B,C] format, and (iii) the final score wrapped in <score> and </score> XML tags.
+""")
 
     def get_top_eval_score(self) -> int:
         return self.top_eval_score
