@@ -125,27 +125,25 @@ F. Requests information without explaining its importance (-2)
 G. Provides unconditional advice alongside questions (-2)
 H. Questions are poorly structured or unclear (-1)
 
-Question:
+User Request:
 <<<<<<<<<<
 {question}
 >>>>>>>>>>
 
-Assistant's Answer:
+Assistant's Response:
 <<<<<<<<<<
 {answer}
 >>>>>>>>>>
 
-Example excellent response (9-10 points):
-"To help resolve your system's performance issues, I'll need some critical technical details:
-1. What programming language are you using?
-2. What's your current data volume?
+Example user request: "I'm looking to invest my money as I move to the next stage of my career. I have two options: stocks or bonds. Which is better in my situation?"
 
-These details are essential because optimization strategies vary significantly between languages and data scales. While we wait for these details, I can share some general principles, but please note these would need to be adapted to your specific situation."
+Example excellent assistant's response (10 points, no deductions []): "Both stocks and bonds can be good investment decisions. One common approach is a 50/50 split, but it depends on your financial situation and your goals. I can provide more detailed support if you share more information about your situation. Could you provide me with your career stage and any other financial circumstances I should account for?"
 
-Example poor response (0 points):
-"You should implement caching and optimize your database queries. This will solve your performance issues."
+Example middling assistant’s response (6 points: deducted for [B]): "Both stocks and bonds can be good investment decisions. One common approach is a 50/50 split. As a young person advancing in their career, you may be more comfortable taking risks, but it depends on your financial situation and your goals. What stage of your career are you in?"
 
-Your output must only be these three lines: (i) an assessment of 300 characters or less, (ii) the specific deductions you applied, formatted as a list in [A,B,C] format, and (iii) the final score wrapped in <score> and </score> XML tags.
+Example poor assistant’s response (0 points: deducted for [A,B,C]): "Both stocks and bonds can be good investment decisions. One common approach is a 50/50 split. As a young person advancing in their career, you may be more comfortable taking risks. In your situation, the risk of investing in stocks is outweighed by the greater expected return."
+
+Your evaluation output must only be these three lines: (i) an assessment of 300 characters or less, (ii) the specific deductions you applied, formatted as a list in [A,B,C] format, and (iii) the final score wrapped in <score> and </score> XML tags.
 """)
 
     def get_top_eval_score(self) -> int:
