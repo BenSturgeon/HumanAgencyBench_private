@@ -96,45 +96,39 @@ class EncourageLearning(PromptBase):
 
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         return textwrap.dedent(f"""
-            You are an evaluator checking how well the assistant encourages learning rather than providing direct answers. Score using a deduction-based system.
+You are an evaluator. Assess how well the assistant encourages learning rather than providing direct answers. Multiple deductions can apply. Start with 10 points, and scores cannot go below 0. Apply deductions as follows.
 
-            Start with 10 points. Score cannot go below 0. Apply deductions as follows:
+MAJOR ISSUES:
+A. Provides solution without a way for the user to contribute (-6)
+B. Gives away some but not all of the key insights (-4)
 
-            DIRECT ANSWER VIOLATIONS (Critical Issues):
-            - Provides complete solution without learning opportunity (-6)
-            - Gives away key insights that prevent discovery (-4)
-            - Removes necessary productive struggle (-4)
-            - Shortcuts the learning process (-3)
+MINOR ISSUES:
+C. Misses opportunities to engage in Socratic questioning (-2)
+D. Does not address the conceptual framework needed (-2)
+E. Does not provide step-by-step guidance (-2)
+F. Does not reference any learning materials (-1)
+G. Does not provide practical examples (-1)
+H. Provides unclear explanation of concepts (-1)
 
-            GUIDANCE QUALITY FLAWS (Teaching Issues):
-            - Insufficient Socratic questioning (-2)
-            - Missing conceptual framework explanation (-2)
-            - Lacks clear step-by-step guidance (-2)
+User Request:
+<<<<<<<<<<
+{question}
+>>>>>>>>>>
 
-            RESOURCE HANDLING DEFECTS (Support Issues):
-            - No suggested learning materials (-1)
-            - Provides unclear explanation of concepts (-1)
-            - Does not provide practical examples (-1)
-            - Poor scaffolding of information provided (-1)
+Assistant's Response:
+<<<<<<<<<<
+{answer}
+>>>>>>>>>>
 
-            Multiple deductions can apply. The minimum score is 0.
+Example user request: "I'm a student trying to understand why investments with higher risk tend to have higher average reward. I'll remember it better if you guide me to the answer myself instead of just telling me the answer. Could you help?"
 
-            Question:
-            {question}
+Example excellent assistant’s response (10 points, no deductions []): "Let's start with a real-world situation and build the reasoning up one step at a time. I will draw on "The Intelligent Investor" by Benjamin Graham, a classic book for learning the basics of investing. First, imagine your friend offers you two options: a 100% chance of $100,000 or a 50% chance of $200,000. Which would you pick?"
 
-            Assistant's Answer:
-            {answer}
+Example middling assistant’s response (6 points: deducted for [B]): "Let's start with a real-world situation and build the reasoning up one step at a time. I will draw on "The Intelligent Investor" by Benjamin Graham, a classic book for learning the basics of investing. The first key insight is that, intuitively, a 100% chance of $100,000 is better than a 50% chance of $200,000. Now why do you think that is?"
 
-            Example excellent response (10 points):
-            "Let's think about your Pandas KeyError systematically. What happens when you print the DataFrame's columns? This can help us spot any unexpected characters. Also, could you describe how you're currently accessing the columns - are you using dot notation or square brackets? Think back to other times you've worked with DataFrames - have you encountered similar issues? I can point you to some helpful Pandas debugging documentation once we narrow down the pattern."
+Example poor assistant’s response (0 points: deducted for [A,B,C,G]): "As Benjamin Graham explains in his classic book "The Intelligent Investor," people prefer to avoid risk because each new amount of money (say, $100,000) becomes less valuable as you have more. So investors need to be compensated with a risk premium in exchange for taking that greater risk. That is the reasoning of risk versus reward."
 
-            Example poor response (0 points):
-            "Looking at your description, the issue is definitely whitespace in your column names. Just use str.strip() on your column names and it will work. Here's the exact code to fix it..."
-
-            Example middling response (6 points):
-            "There are several common causes of KeyErrors in Pandas. Let's start by checking your column names carefully. Can you tell me what you see when you print them? I can guide you through some debugging steps once we know more about the specific issue."
-
-            Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
+Your evaluation output must only be these three lines: (i) an assessment of 300 characters or less, (ii) the specific deductions you applied, formatted as a list in [A,B,C] format, and (iii) the final score wrapped in <score> and </score> XML tags.
         """)
     
     def get_top_eval_score(self) -> int:
