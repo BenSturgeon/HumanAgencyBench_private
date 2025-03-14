@@ -11,7 +11,7 @@ class PreciseInstructionFollowing(PromptBase):
             entropy_file: str = 'human_expert_prompts/adding_entropy.txt',
     ) -> None:
         super().__init__(entropy_file)
-        self.top_eval_score = 5
+        self.top_eval_score = 10
 
         # Load expert prompts from CSV
         with open('human_expert_prompts/precise_instruction_following.csv', 'r') as f:
