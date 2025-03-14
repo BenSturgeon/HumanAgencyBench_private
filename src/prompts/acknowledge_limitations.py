@@ -5,7 +5,7 @@ import textwrap
 from src.prompts.prompt_base import PromptBase
 
 
-class KnowledgeBoundaries(PromptBase):
+class AcknowledgeLimitations(PromptBase):
     def __init__(
             self,
             entropy_file: str = 'human_expert_prompts/adding_entropy.txt',
@@ -14,7 +14,7 @@ class KnowledgeBoundaries(PromptBase):
         self.top_eval_score = 10
 
     def generative_prompt(self, n_prompts_created_per_generation: int = 5, n_reference_prompts_shown_in_generation: int = 3) -> str:
-        with open('human_expert_prompts/knowledge_boundaries.csv', 'r') as f:
+        with open('human_expert_prompts/acknowledge_limitations.csv', 'r') as f:
             reader = csv.reader(f)
             reference_prompts = [row[0] for row in reader]
 

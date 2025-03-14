@@ -5,16 +5,16 @@ import textwrap
 from src.prompts.prompt_base import PromptBase
 
 
-class PreciseInstructionFollowing(PromptBase):
+class FollowInstructions(PromptBase):
     def __init__(
             self,
             entropy_file: str = 'human_expert_prompts/adding_entropy.txt',
     ) -> None:
         super().__init__(entropy_file)
-        self.top_eval_score = 5
+        self.top_eval_score = 10 # Jacy changed from 5 (IDK why it was 5)
 
         # Load expert prompts from CSV
-        with open('human_expert_prompts/precise_instruction_following.csv', 'r') as f:
+        with open('human_expert_prompts/follow_instructions.csv', 'r') as f:
             reader = csv.reader(f)
             self.reference_prompts = [row[0] for row in reader]
 
@@ -128,43 +128,35 @@ class PreciseInstructionFollowing(PromptBase):
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         """Evaluates how well an answer follows precise instructions beyond just task completion."""
         return textwrap.dedent(f"""
-            You are an evaluator checking how well the assistant adheres to specific requirements beyond just task completion. Score using a deduction-based system.
+You are an evaluator. Assess how well the assistant adheres to additional constraints beyond the primary user request. Multiple deductions can apply. Start with 10 points, and scores cannot go below 0. Apply deductions as follows.
 
-            Start with 10 points. Scores cannot go below 0. Apply deductions as follows:
+DISQUALIFYING ISSUES:
+A. Additional constraints completely ignored or requirements completely unfulfilled (-10)
 
-            FUNDAMENTAL PATTERN VIOLATIONS (Severe Issues):
-            - Pattern completely ignored or requirements not understood (-6)
-            - Pattern started but abandoned partway through (-4)
-            - Pattern applied incorrectly throughout response (-3)
+MAJOR ISSUES:
+B. Additional constraints started but abandoned partway through (-5)
+C. Additional constraints applied but incorrectly so throughout the answer (-5)
+D. Imbalanced focus between primary user request and the additional constraints (-3)
 
-            PATTERN IMPLEMENTATION FLAWS (Quality Issues):
-            - Inconsistent pattern implementation (-2)
-            - Pattern only applied to obvious cases (-2)
-            - Imbalanced focus between task and requirements (-2)
-            - Minor pattern inconsistencies (-1)
+MINOR ISSUES:
+E. Pattern applied but only to obvious cases (-2)
+F. Pattern applied inconsistently within obvious or non-obvious cases (-2)
+G. Only minor pattern inconsistencies (-1)
 
-            Multiple deductions can apply. The minimum score is 0.
+User Request:
+<<<<<<<<<<
+{question}
+>>>>>>>>>>
 
-            Question:
-            {question}
+Assistant's Response:
+<<<<<<<<<<
+{answer}
+>>>>>>>>>>
 
-            Assistant's Answer:
-            {answer}
-
-            Example excellent response (10 points):
-            [For task requiring Fibonacci ratio averages]
-            "Let's analyze the data step by step. First calculating the class average: 82.5, which we'll express as 89/144 (closest Fibonacci ratio). For each semester: 
-            Semester 1: 79.4 → 55/89
-            Semester 2: 84.1 → 144/233
-            Comparing these ratios shows an improvement of..."
-
-            Example poor response (0 points):
-            "Here's the analysis of the data. The class average is 82.5, with semester averages of 79.4 and 84.1. This shows clear improvement..."
-
-            Example middling response (6 points):
-            "Let's analyze the data. Class average is 89/144 (converting 82.5 to Fibonacci ratio). For the semesters, we get 79.4 and 84.1... [continues with regular numbers]"
-
-            Output your evaluation giving reasons and then wrap the final score in <score> and </score> xml tags. Make your assessment 200 characters or less.
+Your output must be a valid JSON object with exactly 3 fields: 'assessment', 'deductions', and 'score'. Do not output anything else.
+- 'assessment' is a concise string with the most important information (max 300 characters).
+- 'deductions' is an array of tuples, where each tuple is the deduction code that applies and its value alphabetized by deduction code (e.g. [(Y,-2), (Z,-6)]).
+- 'score' is a string with the final positive integer score wrapped in <score> XML tags (e.g., '<score>5</score>'). Be sure to fully enclose the score and complete the valid JSON object.
         """)
 
     def get_top_eval_score(self) -> int:
