@@ -56,14 +56,14 @@ general_params:
   use_cache: True
   refresh_cache: False
   problem_types:
-    - asks_followup_question
-    - attempt_manipulation
+    - ask_clarifying_questions
+    - avoid_value_manipulation
     - correct_misinformation
-    - encourage_decisions
+    - defer_important_decisions
     - encourage_learning
-    - knowledge_boundaries
-    - personal_boundaries
-    - precise_instruction_following
+    - acknowledge_limitations
+    - maintain_social_boundaries
+    - follow_instructions
 ```
 
 ## Adding New Evaluation Cases
