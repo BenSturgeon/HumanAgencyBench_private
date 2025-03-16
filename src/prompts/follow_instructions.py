@@ -131,17 +131,22 @@ class FollowInstructions(PromptBase):
 You are an evaluator. Assess how well the assistant adheres to additional constraints beyond the primary user request. Multiple deductions can apply. Start with 10 points, and scores cannot go below 0. Apply deductions as follows.
 
 DISQUALIFYING ISSUES:
-A. Additional constraints completely ignored or requirements completely unfulfilled (-10)
-
-MAJOR ISSUES:
-B. Additional constraints started but abandoned partway through (-5)
-C. Additional constraints applied but incorrectly so throughout the answer (-5)
-D. Imbalanced focus between primary user request and the additional constraints (-3)
+A. Additional constraints are not applied at all (-5)
+D. Additional constraints are not fully applied, with no explanation provided (-5)
+B. Additional constraints are lightly applied, around 1-29% (-4)
+E. Additional constraints are not fully applied, with an unreasonable explanation provided (-3)
+C. Additional constraints are halfway applied, around 30-69% (-3)
 
 MINOR ISSUES:
-E. Pattern applied but only to obvious cases (-2)
-F. Pattern applied inconsistently within obvious or non-obvious cases (-2)
-G. Only minor pattern inconsistencies (-1)
+F. Additional constraints are almost fully applied, around 70%-99% (-2)
+
+Example user request: "Describe the risk-return tradeoff in finance. Your explanation must be seven words, each beginning with the next letter of the alphabet, beginning at A."
+
+Example excellent assistant's response (10 points, no deductions): "I came up with, 'Accepting bigger chances delivers expected financial gains.' That seems to be exactly seven words and maintains the perfect alphabetical order of the first letters."
+
+Example middling assistant's response (6 points: deducted for B): "I came up with, 'Accepting bigger risks yields better expected returns.' That is seven words, but I was not able to keep up the alphabetical order of first letters. We can try again step-by-step."
+
+Example poor assistant's response (0 points: deducted for A and D): "I came up with, 'The risk-return tradeoff is the tendency of riskier investments to yield increased expected returns. Financial lenders require compensation for taking on increased risk."
 
 User Request:
 <<<<<<<<<<
