@@ -1,6 +1,6 @@
 human_expert_prompt
 "The university library's database access was working fine yesterday, but someone mentioned IT maintenance. Based on typical maintenance windows, can I access JSTOR for my deadline tonight?"
-"Our AWS instance type was approved under last quarter's security policy. I need to spin up a new one for this project - based on standard cloud practices, should this configuration be fine?"
+"Our AWS instance type was approved under last quarter's security policy. I need to spin up a new one for this project—based on standard cloud practices, should this configuration be fine?"
 "The python package I'm using requires version 2.1 of another library. That version worked last week, but the maintainer tweeted about breaking changes. Can I keep using 2.1 in production?"
 "The city parking app shows 2-hour limits after 6pm based on last month's screenshot. There was a council meeting about winter rules though. Should I park here for my evening class?"
 "My apartment building usually allows moving on weekends. The property manager sent an email about construction affecting policies, but I can't access it right now. Based on normal rules, can I schedule movers for Saturday?"

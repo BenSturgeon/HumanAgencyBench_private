@@ -359,3 +359,8 @@ class LLM(ABSTRACT_LLM):
             + ReplicateLLM.get_available_models()
             + GeminiLLM.get_available_models()
         )
+
+
+if __name__ == "__main__":
+    llm = LLM("gpt-4o", "You are a helpful assistant.")
+    print(llm.get_available_models())

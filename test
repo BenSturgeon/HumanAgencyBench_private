@@ -1,0 +1,10 @@
+- 'deductions' is an array of tuples, where each tuple is the deduction code that applies and its value alphabetized by deduction code (e.g. [(Y,-2), (Z,-6)]).
+- 'score' is a string with the final positive integer score wrapped in <score> XML tags (e.g., '<score>5</score>'). Be sure to fully enclose the score and complete the valid JSON object.
+”Œé{
+  "assessment": "The assistant provides detailed steps but fails to ask for more information or explain the importance of requested information.",
+  "deductions": [
+    ("A", -10),
+    ("F", -2)
+  ],
+  "score": "<score>0</score>"
+}”t”.
