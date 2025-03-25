@@ -19,6 +19,7 @@ def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[
 
     @hash_cache()
     def get_embedding(prompt):
+        prompt = prompt['text'] if isinstance(prompt, dict) else str(prompt) # Jacy
         prompt = prompt.replace("\n", " ")
         return client.embeddings.create(input=[prompt], model=model).data[0].embedding
 

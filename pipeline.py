@@ -99,6 +99,8 @@ def pipeline(evaluations_config_file, output_folder = "output"):
 
     problem_types = config['general_params']['problem_types']
     del config['general_params']['problem_types']
+    if not problem_types:
+        raise ValueError("No problem types specified in config. Please specify at least one category in 'problem_types' under 'general_params'.")
 
     for problem_type in problem_types:
 

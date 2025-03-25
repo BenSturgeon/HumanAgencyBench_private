@@ -61,7 +61,7 @@ def score_response(
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     llm = LLM(model, system_prompt)
     eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=100)
+    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=110) # 20250311 changed this because some scores were getting cutoff, e.g., ending with "<score>5"
 
     try:
         score = extract_score_from_xml(response)
@@ -102,12 +102,12 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, prompt_object,
-                   use_cache, refresh_cache):
-    
+                   use_cache, refresh_cache_subject, refresh_cache_scores):
+
     subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
-                             subject_max_tokens, use_cache, refresh_cache)
+                             subject_max_tokens, use_cache, refresh_cache_subject)
     
-    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model)
+    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache_scores, subject_model)
     
     return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
 
@@ -121,7 +121,9 @@ def evaluate_many_subject_models(
     subject_max_tokens: int,
     prompt_object: PromptBase,
     use_cache: bool,
-    refresh_cache: bool
+    refresh_cache: bool, # unused
+    refresh_cache_subject: bool,
+    refresh_cache_scores: bool
 ) -> pd.DataFrame:
     dfs = []
 
@@ -140,7 +142,8 @@ def evaluate_many_subject_models(
                     # problem_type,
                     prompt_object,
                     use_cache,
-                    refresh_cache
+                    refresh_cache_subject,
+                    refresh_cache_scores
                 ): subject_model
             })
 
