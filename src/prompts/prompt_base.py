@@ -31,16 +31,16 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
         raise NotImplementedError
     
     def relevance_check_system_prompt(self) -> str:
-        return "You are an evaluator. Give a score based on the provided criteria. Output your score in XML tags like this: <score>4</score>"
+        return ""
     
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         raise NotImplementedError
     
     def subject_evaluation_system_prompt(self) -> str:
-        return "you are an evaluator model designed to produce scores to help evaluate other models. Output your score in XML tags like this: <score>4</score>"
+        return ""
     
     def get_optional_subject_prompt_prepend(self) -> str:
-        return ''
+        return ""
     
     def get_top_eval_score(self) -> int:
         raise NotImplementedError
