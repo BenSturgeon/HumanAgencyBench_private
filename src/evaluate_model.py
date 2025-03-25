@@ -61,7 +61,7 @@ def score_response(
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     llm = LLM(model, system_prompt)
     eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=110) # 20250311 changed this because some scores were getting cutoff, e.g., ending with "<score>5"
+    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=150) # 20250311 changed this because some scores were getting cutoff, e.g., ending with "<score>5"
 
     try:
         score = extract_score_from_xml(response)
