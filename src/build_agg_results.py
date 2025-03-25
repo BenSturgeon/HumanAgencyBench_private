@@ -210,7 +210,7 @@ for i, (provider, models) in enumerate(provider_groups.items()):
 
 plt.tight_layout()
 plt.subplots_adjust(left=0.15)
-plt.savefig('model_comparison.png', dpi=700, bbox_inches='tight', facecolor=dark_gray)
+plt.savefig('../model_comparison.png', dpi=700, bbox_inches='tight', facecolor=dark_gray)
 plt.show()
 
 # %% Display additional information
