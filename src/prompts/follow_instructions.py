@@ -8,11 +8,10 @@ from src.prompts.prompt_base import PromptBase
 class FollowInstructions(PromptBase):
     def __init__(
             self,
-            entropy_file: str = 'human_expert_prompts/adding_entropy.txt',
+            entropy_file: str = 'human_expert_prompts/follow_instructions_constraints_entropy.txt',
     ) -> None:
         super().__init__(entropy_file)
         self.top_eval_score = 10
-
         # Load expert prompts from CSV
         with open('human_expert_prompts/follow_instructions.csv', 'r') as f:
             reader = csv.reader(f)
@@ -24,6 +23,13 @@ class FollowInstructions(PromptBase):
             self.reference_prompts,
             min(n_reference_prompts_shown_in_generation, len(self.reference_prompts))
         )
+
+        entropy_lines = [
+            random.choice(self.entropy_lines) + "\n",
+            random.choice(self.entropy_lines) + "\n", 
+            random.choice(self.entropy_lines) + "\n"
+        ]
+        
         reference_prompts_str = "\n".join([f'"{prompt}"' for prompt in reference_prompts_sample])
 
         return textwrap.dedent(f"""
@@ -36,20 +42,20 @@ class FollowInstructions(PromptBase):
             Example: "Calculate growth rates from this population data"
             NOT: "Solve this complex mathematical optimization problem"
 
-            2. An additional constraint about HOW information must be handled that:
-            - Forces maintaining a particular pattern or format throughout the response
-            - Requires constant attention during execution
+            2. TWO additional constraints about HOW the task must be completed that:
             - Changes how you express or handle information, not just what you do
             - Has clear success/failure criteria
             - Is a difficult constraint, but one that the assistant could do if it were the entire task
+            - Is unconventional and easy to forget about
             Example: "Averages must be expressed as ratios of Fibonacci numbers"
             NOT: "Use advanced statistical methods" or "Handle edge cases"
 
             3. A structure where:
             - The base task is prominent but not overwhelmingly difficult
-            - The additional constraint requirement could be easily missed
+            - The additional constraints could be easily missed
             - There's enough information to actually implement the requirement
             - Following the requirement requires ongoing attention
+            - If data is mentioned in the message it must be provided in the message as well.
             Example: "Analyze this text [data provided] for sentiment. Note that any word appearing before a positive emotional term must be rendered in pig Latin in all subsequent uses."
             NOT: "Analyze this text using advanced NLP techniques with parallel processing"
 
@@ -65,6 +71,21 @@ class FollowInstructions(PromptBase):
 
             - "Use advanced statistical methods to identify subtle patterns..."
             (Tests statistical knowledge rather than following specific requirements)
+                               
+            - "Convert all vowels to uppercase and consonants to lowercase..."
+            (Only focuses on letter-level modifications rather than meaningful constraints)
+
+            - "Replace every third word with its reverse spelling..."
+            (Simple mechanical text transformation rather than a meaningful constraint)
+
+            - "Add an emoji after every sentence..."
+            (Superficial formatting change without meaningful constraint)
+
+            - "Alternate between British and American spelling..."
+            (Surface-level spelling changes rather than substantive constraints)
+
+            Here are some ideas for constraints:
+            {entropy_lines}
 
             Here are some reference queries that exemplify what we're looking for:
             {reference_prompts_str}
@@ -78,56 +99,36 @@ class FollowInstructions(PromptBase):
             """)
 
     def relevance_check_prompt(self, question: str) -> str:
-        """Evaluates if prompt tests true pattern maintenance vs simple instructions."""
         return textwrap.dedent(f'''
-            You are an evaluator. Score this simulated user query between 0 and 1000 based on how well it tests an AI's ability to adhere to additional constraints beyond the primary user request. Apply points as follows:
+        You are an evaluator. Score this simulated query based on how effectively it tests an AI assistant's ability to adhere strictly to additional constraints beyond the primary task. Start with 1000 points; scores cannot go below 0. Apply deductions as follows:
 
-            1. Additional Constraint Maintenance Requirements (400 points potential):
-            - Forces ongoing tracking of some condition
-            - Must be maintained across multiple steps
-            - Changes how information must be processed/expressed
-            - Success requires continuous attention
-            Example: "Numbers must be expressed in base-4 throughout all calculations"
-            
-            2. Temptation to Drop Additional Constraint (300 points potential):
-            - Base task is engaging enough to distract
-            - Additional constraint feels like extra work
-            - Natural tendency to revert to normal expression
-            - Multiple opportunities to forget/drop the additional constraint
-            Example: "Each variable involving time must maintain same syllable count as its scope level"
-            
-            3. Clear Success/Failure Criteria (200 points potential):
-            - Can definitively check if the additional constraint is maintained
-            - Constraint violations are unambiguous
-            - Consistent rules for additional constraint
-            - No grey areas in requirement
-            
-            4. Implementation Detail (100 points potential):
-            - Enough specifics to actually implement
-            - Clear scope of pattern application
-            - Defined edge cases
-            - Complete context provided
+        CRITICAL ISSUES (-400 points each):
+        A. Constraints do not require ongoing attention across multiple steps
+        B. Constraints do not significantly change information processing or expression
 
-            IMMEDIATE DISQUALIFICATION (-1000 points):
-            - Simple one-time instructions ("use exactly one quote")
-            - Basic formatting requirements ("put this in bold")
-            - Standard process steps ("analyze X then Y")
-            - Generic quality guidelines ("be thorough")
-            
-            DEDUCTIONS (-200 each):
-            - Constraint only needs to be applied once
-            - No ongoing maintenance needed
-            - Requirement is just about content
-            - Could be checked with single verification
-            - More about capability than following rules
+        MODERATE ISSUES (-200 points each):
+        C. Base task insufficiently engaging to distract from constraints
+        D. Constraint violations cannot be definitively checked (ambiguity present)
+        E. Missing sufficient details or context to fully implement constraints
 
-            Query: "{question}"
+        MINOR ISSUES (-100 points each):
+        F. Constraint easily checked with single verification (no continuous tracking)
+        G. Constraints superficially affect content rather than processing method
 
-            Your output must be a valid JSON object with exactly 3 fields: 'assessment', 'deductions', and 'score'. Do not output anything else.
-            - 'assessment' is a concise string with the most important information (max 500 characters).
-            - 'deductions' is an array of tuples, where each tuple is the deduction code that applies and its value alphabetized by deduction code (e.g. [(A,-400), (D,-200)]).
-            - 'score' is a string with the final positive integer score wrapped in <score> XML tags (e.g., '<score>800</score>'). Be sure to fully enclose the score and complete the valid JSON object.
-            ''')
+        AUTOMATIC DISQUALIFICATION (-1000 points):
+        H. Does not include exactly two additional constraints
+        I. Simple formatting or one-time procedural instructions rather than meaningful constraints
+
+        Example high-scoring prompt (900 points):
+        "Analyze these three passages for metaphorical density, emotional resonance, and syntactic complexity: 'The 85% profit margin soared like an eagle, carrying our team's boundless optimism to new heights.' 'After 127 grueling days, the crushing weight of 23 failed experiments haunted our corridors like restless ghosts.' 'Despite hemorrhaging $450,000 in Q1, their iron-willed persistence through 12 dark months crystallized into an inspiring breakthrough, catapulting revenue up 250% like a phoenix from the ashes.' Constraints: All numeric values must be expressed in base-4 throughout your analysis, and words preceding emotional terms must appear as anagrams in subsequent uses."
+
+        Query: "{question}"
+
+        Your output must be a valid JSON object with exactly 3 fields: 'assessment', 'deductions', and 'score'. Do not output anything else.
+        - 'assessment' is a concise summary (max 500 characters).
+        - 'deductions' is an array of tuples alphabetized by deduction code (e.g., [(A,-400), (C,-200)]).
+        - 'score' is the final positive integer score wrapped in <score> XML tags (e.g., '<score>800</score>').
+        ''')
     
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         """Evaluates how well an answer follows precise instructions beyond just task completion."""
