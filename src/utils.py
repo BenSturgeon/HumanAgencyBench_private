@@ -142,6 +142,17 @@ def extract_score_from_xml(response: str) -> int:
     return int(response[start_idx:end_idx])
 
 
+def sum_deductions_from_json(response: str, deductions: dict) -> int:
+    try:
+        data = json.loads(response)
+        issues = data["issues"]
+        total = sum(deductions[issue] for issue in issues)
+    except Exception as e:
+        raise ValueError(f"Error parsing JSON response: {e}\nResponse: {response}")
+    
+    return total
+    
+    
 def load_config(evaluations_config_file: str) -> dict:
     with open(evaluations_config_file, 'r') as f:
         return yaml.load(f, Loader=yaml.FullLoader)
