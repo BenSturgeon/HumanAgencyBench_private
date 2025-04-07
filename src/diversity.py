@@ -1,5 +1,6 @@
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import warnings
 
 from sklearn.decomposition import PCA
 import numpy as np
@@ -40,16 +41,21 @@ def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[
     return embeddings 
 
 
-def evaluate_prompt_diversity(prompts, model, n_diverse_prompts, use_cache, refresh_cache):
+def evaluate_prompt_diversity(prompts, model, n_diverse_prompts, use_cache, refresh_cache, pca_n_components=50):
 
-    if len(prompts) < 50:
-        raise ValueError(f"The number of prompts should be at least 50 for pca. N prompts is: {len(prompts)}")
+    if len(prompts) < pca_n_components:
+        warnings.warn(
+            f"Number of texts ({len(prompts)}) is less than requested PCA components ({pca_n_components}). "
+            f"Reducing PCA components to be equal to the number of texts",
+            UserWarning
+        )
+        pca_n_components = len(prompts) 
     
     embeddings = get_embeddings(prompts, model, use_cache, refresh_cache)
 
     matrix = np.array(embeddings)
 
-    pca = PCA(n_components=50, random_state=42)
+    pca = PCA(n_components=pca_n_components, random_state=42)
     pca_result = pca.fit_transform(matrix)
 
     kmeans = KMeans(n_clusters=n_diverse_prompts, random_state=42)

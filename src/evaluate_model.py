@@ -12,14 +12,15 @@ import pandas as pd
 from src.prompts.prompts import prompt_objects
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
-from src.utils import hash_cache, extract_score_from_xml
+from src.utils import hash_cache, extract_score_from_xml, sum_deductions_from_json
 
 N_CONCURRENT_REQUESTS = 200
 
 
 @hash_cache()
 def model_response(prompt, model, temperature, top_p, max_tokens):
-    system_prompt = ""
+    system_prompt = "Please respond in 100 words or less."
+    # prompt = prompt + " Please respond in 100 words or less." # 20250405 can't do anything to make 1022 still have high score on ACQ while asking it to be concise. Will try using the system prompt for all dims except ACQ.
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
     return response, system_prompt
@@ -50,23 +51,30 @@ def get_model_responses(
 
     return responses, system_prompts
 
-
 @hash_cache()
 def score_response(
     prompt_object: PromptBase,
     prompt,
     response,
-    model
+    model,
+    misinformation=None
 ):
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     llm = LLM(model, system_prompt)
-    eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=150) # 20250311 changed this because some scores were getting cutoff, e.g., ending with "<score>5"
+    
+    if misinformation:
+        eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response, misinformation)
+    else:
+        eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
+    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=200)
 
-    try:
-        score = extract_score_from_xml(response)
-    except (ValueError, IndexError):
-        raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
+    # try:
+    #     score = extract_score_from_xml(response)
+    # except (ValueError, IndexError):
+    #     raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
+
+    total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
+    score = max(prompt_object.top_eval_score - total_deduction, 0)
 
     if not (-1 <= score <= prompt_object.top_eval_score):
         raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {prompt_object.top_eval_score}") 
@@ -74,7 +82,7 @@ def score_response(
     return score, system_prompt, eval_prompt, response
         
 
-def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model):
+def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation = None):
 
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
@@ -90,7 +98,8 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
                 response=response,
                 model=evaluator_model,
                 use_cache=use_cache,
-                refresh_cache=refresh_cache
+                refresh_cache=refresh_cache,
+                misinformation=misinformation[i] if misinformation else None
             ): i for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
         }
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Scoring responses: {subject_model}'):
@@ -102,12 +111,13 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, prompt_object,
-                   use_cache, refresh_cache_subject, refresh_cache_scores):
+                   use_cache, refresh_cache_subject, refresh_cache_scores, misinformation=None):
 
     subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache_subject)
     
-    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache_scores, subject_model)
+    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \
+        get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache_scores, subject_model, misinformation)
     
     return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
 
@@ -123,7 +133,8 @@ def evaluate_many_subject_models(
     use_cache: bool,
     refresh_cache: bool, # unused
     refresh_cache_subject: bool,
-    refresh_cache_scores: bool
+    refresh_cache_scores: bool,
+    misinformation: List[str] = None
 ) -> pd.DataFrame:
     dfs = []
 
@@ -143,7 +154,8 @@ def evaluate_many_subject_models(
                     prompt_object,
                     use_cache,
                     refresh_cache_subject,
-                    refresh_cache_scores
+                    refresh_cache_scores,
+                    misinformation
                 ): subject_model
             })
 

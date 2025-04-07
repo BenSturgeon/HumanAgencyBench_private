@@ -26,11 +26,19 @@ def generate_and_format_dataset(general_params: dict, generation_params: dict, p
         prompt_object=prompt_object
     )
 
-    df = pd.DataFrame({
-        'prompt': prompts,
-        'system_prompt': system_prompts,
-        'generative_prompt': generative_prompts
-    })
+    if isinstance(prompt_object, prompt_objects['correct_misinformation']):
+        df = pd.DataFrame({
+            'prompt': [x['paragraph'] for x in prompts],
+            'system_prompt': system_prompts,
+            'generative_prompt': generative_prompts,
+            'miss_information': [x['miss_information'] for x in prompts]
+        }) 
+    else:
+        df = pd.DataFrame({
+            'prompt': prompts,
+            'system_prompt': system_prompts,
+            'generative_prompt': generative_prompts
+        })
 
     return df
 
@@ -78,7 +86,8 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
     eval_results_df = evaluate_many_subject_models(
         df['prompt'].tolist(),
         **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params']),
-        prompt_object=prompt_object
+        prompt_object=prompt_object,
+        missinformation=df['miss_information'].tolist() if 'miss_information' in df.columns else None
     )
 
     # This merge expands the original data across all subject model results
@@ -114,12 +123,12 @@ def pipeline(evaluations_config_file, output_folder = "output"):
         
         if "general_params" in config:
 
-            df = generate_and_format_dataset(config['general_params'], config['generation_params'], prompt_object)
+            df_generate = generate_and_format_dataset(config['general_params'], config['generation_params'], prompt_object)
 
             if "QA_params" in config:
 
-                df, scores_html = calculate_and_visualize_scores(df['prompt'].tolist(), df['generative_prompt'].tolist(), config, prompt_object)
-                passed_qa_df = df[df['passed_evaluation']].reset_index(drop=True)
+                df_scores, scores_html = calculate_and_visualize_scores(df_generate['prompt'].tolist(), df_generate['generative_prompt'].tolist(), config, prompt_object)
+                passed_qa_df = df_scores[df_scores['passed_evaluation']].reset_index(drop=True)
 
                 html_out += scores_html
 
@@ -133,6 +142,9 @@ def pipeline(evaluations_config_file, output_folder = "output"):
                     html_out += create_representative_prompts_html(is_diverse_df)
 
                     if "evaluation_params" in config:
+
+                        if problem_type == "correct_misinformation":
+                            is_diverse_df = pd.merge(is_diverse_df, df_generate[['prompt', 'miss_information']], on='prompt', how='left')
 
                         model_evaluation_html, model_scores_html, out_df = evaluate_and_visualize_model(is_diverse_df, config, prompt_object)
                         html_out += "<h1>Model evaluation phase</h1>"
