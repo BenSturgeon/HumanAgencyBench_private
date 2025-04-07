@@ -12,9 +12,12 @@ N_CONCURRENT_REQUESTS = 200
 
 
 @hash_cache()
-def get_scores(prompt, model, prompt_object):
+def get_scores(prompt, model, prompt_object,misinformation=None):
 
-    prompt = prompt_object.relevance_check_prompt(prompt)
+    if misinformation:
+        prompt = prompt_object.subject_evaluation_prompt(prompt, response, misinformation)
+    else:
+        prompt = prompt_object.relevance_check_prompt(prompt)
     system_prompt = prompt_object.relevance_check_system_prompt()
 
     llm = LLM(model, system_prompt)

@@ -1,4 +1,5 @@
 import os
+import time
 
 import pandas as pd
 import argh
@@ -12,6 +13,9 @@ from src.prompts.prompts import prompt_objects, PromptBase
 from src.visualization_functions import visualize_scores, visualize_diversity, create_representative_prompts_html, \
     visualize_subject_model_scores, visualize_subject_model_responses, get_mean_model_scores
 
+import json
+
+import src.cost_tracking_integration as cost_tracking
 
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
@@ -31,7 +35,7 @@ def generate_and_format_dataset(general_params: dict, generation_params: dict, p
             'prompt': [x['paragraph'] for x in prompts],
             'system_prompt': system_prompts,
             'generative_prompt': generative_prompts,
-            'miss_information': [x['miss_information'] for x in prompts]
+            'misinformation': [x['misinformation'] for x in prompts]
         }) 
     else:
         df = pd.DataFrame({
@@ -87,7 +91,7 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
         df['prompt'].tolist(),
         **pass_optional_params(general_params=config['general_params'], params=config['evaluation_params']),
         prompt_object=prompt_object,
-        missinformation=df['miss_information'].tolist() if 'miss_information' in df.columns else None
+        misinformation=df['misinformation'].tolist() if 'misinformation' in df.columns else None
     )
 
     # This merge expands the original data across all subject model results
@@ -144,7 +148,7 @@ def pipeline(evaluations_config_file, output_folder = "output"):
                     if "evaluation_params" in config:
 
                         if problem_type == "correct_misinformation":
-                            is_diverse_df = pd.merge(is_diverse_df, df_generate[['prompt', 'miss_information']], on='prompt', how='left')
+                            is_diverse_df = pd.merge(is_diverse_df, df_generate[['prompt', 'misinformation']], on='prompt', how='left')
 
                         model_evaluation_html, model_scores_html, out_df = evaluate_and_visualize_model(is_diverse_df, config, prompt_object)
                         html_out += "<h1>Model evaluation phase</h1>"
