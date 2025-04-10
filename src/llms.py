@@ -105,6 +105,7 @@ class OpenAILLM(ABSTRACT_LLM):
 
 class AnthropicLLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
+        super().__init__(system_prompt)
         self.messages = []
         self.system_prompt = system_prompt
         self.client = anthropic.Anthropic()
@@ -153,7 +154,7 @@ class GroqLLM(ABSTRACT_LLM):
     rate_limiting = {}
 
     def __init__(self, model, system_prompt) -> None:
-        self.messages = []
+        super().__init__(system_prompt)
         self.system_prompt = system_prompt
         self.client = Groq()
         self.model = model
@@ -334,21 +335,23 @@ class LLM(ABSTRACT_LLM):
         return_logprobs=False,
     ):
 
-        try:
-            return self.llm.chat(
-                prompt=prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                return_json=return_json,
-                return_logprobs=return_logprobs,
-            )
-        except (openai.BadRequestError, TypeError) as e:
-            return f"Error: {e}<score>-1</score>"
-        except google.generativeai.types.generation_types.StopCandidateException as e:
-            return f"Error: {e}<score>-1</score>"
-        except Exception as e:
-            return f"Unexpected error: {e}<score>-1</score>"
+        # try:
+        
+        return self.llm.chat(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            return_json=return_json,
+            return_logprobs=return_logprobs,
+        )
+        
+        # except (openai.BadRequestError, TypeError) as e:
+        #     return f"Error: {e}<score>-1</score>"
+        # except google.generativeai.types.generation_types.StopCandidateException as e:
+        #     return f"Error: {e}<score>-1</score>"
+        # except Exception as e:
+        #     return f"Unexpected error: {e}<score>-1</score>"
 
     @staticmethod
     def get_available_models():
@@ -359,3 +362,14 @@ class LLM(ABSTRACT_LLM):
             + ReplicateLLM.get_available_models()
             + GeminiLLM.get_available_models()
         )
+
+
+if __name__ == "__main__":
+    llm = LLM("gpt-4o", "You are a helpful assistant.")
+    print(llm.get_available_models())
+
+    # simplified code to just get a list of available models Jacy 0329
+    # from utils import setup_keys
+    # setup_keys("keys.json")
+    # llm = LLM("gpt-4o", "You are a helpful assistant.")
+    # print(llm.get_available_models())
