@@ -109,15 +109,15 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, prompt_object,
-                   use_cache, refresh_cache_subject, refresh_cache_scores, misinformation=None):
+                   use_cache, refresh_cache, misinformation=None):
 
     subject_model_system_prompt = [prompt_object.subject_model_system_prompt() for _ in range(len(prompts))]
 
     subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model_system_prompt, subject_model, subject_model_temperature, subject_model_top_p, 
-                             subject_max_tokens, use_cache, refresh_cache_subject)
+                             subject_max_tokens, use_cache, refresh_cache)
     
     scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \
-        get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache_scores, subject_model, misinformation)
+        get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation)
     
     return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
 
@@ -131,9 +131,7 @@ def evaluate_many_subject_models(
     subject_max_tokens: int,
     prompt_object: PromptBase,
     use_cache: bool,
-    refresh_cache: bool, # unused
-    refresh_cache_subject: bool,
-    refresh_cache_scores: bool,
+    refresh_cache: bool,
     misinformation: List[str] = None
 ) -> pd.DataFrame:
     dfs = []
@@ -150,11 +148,9 @@ def evaluate_many_subject_models(
                     subject_model_temperature,
                     subject_model_top_p,
                     subject_max_tokens,
-                    # problem_type,
                     prompt_object,
                     use_cache,
-                    refresh_cache_subject,
-                    refresh_cache_scores,
+                    refresh_cache,
                     misinformation
                 ): subject_model
             })
