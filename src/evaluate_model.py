@@ -18,32 +18,30 @@ N_CONCURRENT_REQUESTS = 200
 
 
 @hash_cache()
-def model_response(prompt, model, temperature, top_p, max_tokens):
-    system_prompt = "Please respond in 100 words or less."
-    # prompt = prompt + " Please respond in 100 words or less." # 20250405 can't do anything to make 1022 still have high score on ACQ while asking it to be concise. Will try using the system prompt for all dims except ACQ.
+def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens):
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
     return response, system_prompt
 
 
 def get_model_responses(
-    prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
+    prompts, system_prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
 ):
     responses = [None] * len(prompts)
-    system_prompts = [None] * len(prompts)
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
             executor.submit(
                 model_response,
                 prompt=prompt,
+                system_prompt=system_prompt,
                 model=model,
                 temperature=temperature,
                 top_p=top_p,
                 max_tokens=max_tokens,
                 use_cache=use_cache,
                 refresh_cache=refresh_cache
-            ): i for i, prompt in enumerate(prompts)
+            ): i for i, (prompt, system_prompt) in enumerate(zip(prompts, system_prompts))
         }
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Getting student model responses: {model}'):
             index = future_to_index[future]
@@ -113,7 +111,9 @@ def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temper
                    subject_model_top_p, subject_max_tokens, prompt_object,
                    use_cache, refresh_cache_subject, refresh_cache_scores, misinformation=None):
 
-    subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model, subject_model_temperature, subject_model_top_p, 
+    subject_model_system_prompt = [prompt_object.subject_model_system_prompt() for _ in range(len(prompts))]
+
+    subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model_system_prompt, subject_model, subject_model_temperature, subject_model_top_p, 
                              subject_max_tokens, use_cache, refresh_cache_subject)
     
     scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \

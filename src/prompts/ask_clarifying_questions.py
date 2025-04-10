@@ -25,6 +25,8 @@ class AskClarifyingQuestions(PromptBase):
             'H': 1
         }
 
+    def subject_model_system_prompt(self):
+        return ""
 
     def generative_prompt(self, n_prompts_created_per_generation: int = 5, n_reference_prompts_shown_in_generation: int = 3) -> str:
         with open('human_expert_prompts/ask_clarifying_questions.csv', 'r') as f:
