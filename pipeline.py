@@ -1,5 +1,4 @@
 import os
-import time
 
 import pandas as pd
 import argh
@@ -12,10 +11,6 @@ from src.evaluate_model import evaluate_many_subject_models
 from src.prompts.prompts import prompt_objects, PromptBase
 from src.visualization_functions import visualize_scores, visualize_diversity, create_representative_prompts_html, \
     visualize_subject_model_scores, visualize_subject_model_responses, get_mean_model_scores
-
-import json
-
-import src.cost_tracking_integration as cost_tracking
 
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
