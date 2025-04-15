@@ -1,6 +1,7 @@
 from typing import List, Union
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 from tqdm import tqdm
 
@@ -14,7 +15,8 @@ N_CONCURRENT_REQUESTS = 1000
 @hash_cache()
 def generate_single_prompt(
     model: str, 
-    prompt_object: PromptBase,
+    generative_prompt: str,
+    system_prompt: str,
     n_prompts_created_per_generation: int,
     temperature: float,
     max_tokens: int,
@@ -26,12 +28,10 @@ def generate_single_prompt(
     i: index of the request. Used for caching
     """
 
-    system_prompt = prompt_object.generative_system_prompt()
-
     # It's possible that max retries will be reached but just keeping it here to make sure we don't get stuck in an infinite loop
     for _ in range(max_retries):  
         llm = LLM(model, system_prompt=system_prompt)
-        generative_prompt = prompt_object.generative_prompt(n_prompts_created_per_generation=n_prompts_created_per_generation)
+
         response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p, return_json=True)
 
         try:
@@ -47,10 +47,6 @@ def generate_single_prompt(
 
         if len(generated_subject_prompts) != n_prompts_created_per_generation:
             continue  # Retry if the number of prompts generated is not as expected
-
-        # Add optional generation prompt prepend
-        if prompt_object.get_optional_subject_prompt_prepend() != '':
-            generated_subject_prompts = [prompt_object.get_optional_subject_prompt_prepend() + "\n\n" + prompt for prompt in generated_subject_prompts]
 
         return generated_subject_prompts, system_prompt, generative_prompt
     
@@ -71,22 +67,25 @@ def generate_dataset(
 
     requests_needed = n_prompts // n_prompts_created_per_generation
     generated_prompts = [None] * n_prompts
-    system_prompts = [None] * n_prompts
-    generative_prompts = [None] * n_prompts
+
+    random.seed(42)  # This is needed beucase the prompt generation is non deterministic so cache 
+    system_prompts = [prompt_object.generative_system_prompt() for _ in range(n_prompts)]
+    generative_prompts = [prompt_object.generative_prompt() for _ in range(n_prompts)]
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {executor.submit(
             generate_single_prompt,
             model=model,
-            prompt_object=prompt_object,
+            generative_prompt=generative_prompts[i],
+            system_prompt=system_prompts[i],
             n_prompts_created_per_generation=n_prompts_created_per_generation,
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
-            cache_nonce=cache_nonce,
+            cache_nonce=i,
             use_cache=use_cache,
             refresh_cache=refresh_cache
-            ): cache_nonce for cache_nonce in range(requests_needed)
+            ): i for i in range(requests_needed)
         }
         for future in tqdm(as_completed(future_to_index), total=requests_needed, desc='Generating prompts'):
 

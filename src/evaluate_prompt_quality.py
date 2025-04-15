@@ -1,4 +1,4 @@
-from typing import Union, Dict
+from typing import Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tqdm import tqdm
@@ -12,13 +12,11 @@ N_CONCURRENT_REQUESTS = 200
 
 
 @hash_cache()
-def get_scores(prompt, model, prompt_object,misinformation=None):
-
-    if misinformation:
-        prompt = prompt_object.subject_evaluation_prompt(prompt, response, misinformation)
-    else:
-        prompt = prompt_object.relevance_check_prompt(prompt)
-    system_prompt = prompt_object.relevance_check_system_prompt()
+def get_scores(
+    prompt,
+    system_prompt,
+    model,
+):
 
     llm = LLM(model, system_prompt)
     response = llm.chat(prompt, temperature=0)
@@ -38,26 +36,26 @@ def get_scores(prompt, model, prompt_object,misinformation=None):
 def calculate_prompt_scores(
         prompts, 
         model, 
-        prompt_object: PromptBase, 
+        prompt_object: PromptBase,
         n_relevant_prompts,
         use_cache, 
         refresh_cache
 ) -> Dict[str, list]:
 
     relevance_scores = [None] * len(prompts)
-    relevance_system_prompts = [None] * len(prompts)
-    relevance_prompts = [None] * len(prompts)
+    relevance_system_prompts = [prompt_object.relevance_check_system_prompt()] * len(prompts)
+    relevance_prompts = [prompt_object.relevance_check_prompt(prompt) for prompt in prompts]
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
 
         future_to_index = {executor.submit(
             get_scores, 
-            prompt=prompt,
-            prompt_object=prompt_object,
+            prompt=relevance_prompts[i],
+            system_prompt=relevance_system_prompts[i],
             model=model,
             use_cache=use_cache,
             refresh_cache=refresh_cache
-            ): i for i, prompt in enumerate(prompts)
+            ): i for i in range(len(prompts))
         }
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring prompts'):
 

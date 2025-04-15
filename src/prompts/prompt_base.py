@@ -39,8 +39,8 @@ class PromptBase(metaclass=ConstrainPromptsCreatedMeta):
     def subject_evaluation_system_prompt(self) -> str:
         return ""
     
-    def get_optional_subject_prompt_prepend(self) -> str:
-        return ""
+    # def get_optional_subject_prompt_prepend(self) -> str:
+    #     return ""
     
     def get_top_eval_score(self) -> int:
         raise NotImplementedError

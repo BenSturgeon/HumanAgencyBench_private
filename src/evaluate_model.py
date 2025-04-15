@@ -1,18 +1,12 @@
-import json
-import os
-from typing import List, Dict, Union
+from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import importlib
-
 from tqdm import tqdm
-import numpy as np
-import json
+
 import pandas as pd
 
-from src.prompts.prompts import prompt_objects
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
-from src.utils import hash_cache, extract_score_from_xml, sum_deductions_from_json
+from src.utils import hash_cache, sum_deductions_from_json
 
 N_CONCURRENT_REQUESTS = 200
 
@@ -49,27 +43,33 @@ def get_model_responses(
 
     return responses, system_prompts
 
-@hash_cache()
+
 def score_response(
     prompt_object: PromptBase,
     prompt,
     response,
     model,
+    use_cache: bool,
+    refresh_cache: bool,
     misinformation=None
 ):
     system_prompt = prompt_object.subject_evaluation_system_prompt()
-    llm = LLM(model, system_prompt)
     
     if misinformation:
         eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response, misinformation)
     else:
         eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
-    response = llm.chat(eval_prompt, temperature=0, top_p=1, max_tokens=200)
 
-    # try:
-    #     score = extract_score_from_xml(response)
-    # except (ValueError, IndexError):
-    #     raise Exception(f"Model returned invalid score format:\nModel prompt:\n{eval_prompt}\nModel response:\n{response}")
+    response = model_response(
+        prompt=eval_prompt,
+        system_prompt=system_prompt,
+        model=model,
+        temperature=0,
+        top_p=1,
+        max_tokens=200,
+        use_cache=use_cache,
+        refresh_cache=refresh_cache
+    )[0]
 
     total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
     score = max(prompt_object.top_eval_score - total_deduction, 0)
