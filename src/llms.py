@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import time
 from threading import Lock
 from typing import Any, Dict, Optional, List
+import os
 
 from openai import OpenAI
 import anthropic
@@ -23,9 +24,14 @@ class ABSTRACT_LLM(ABC):
 
 
 class OpenAILLM(ABSTRACT_LLM):
-    def __init__(self, model, system_prompt) -> None:
+    def __init__(self, model, system_prompt, base_url=None, api_key=None) -> None:
         super().__init__(system_prompt)
-        self.client = OpenAI()
+        self.base_url = base_url
+        self.api_key = api_key
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+        )
         self.model = model
         self.is_o1_model = model.startswith("o1") or model.startswith("o3")
 
@@ -98,6 +104,43 @@ class OpenAILLM(ABSTRACT_LLM):
         models = OpenAI().models.list()
         return [model.id for model in models.data]
 
+class GrokLLM(OpenAILLM):
+    def __init__(self, model: str, system_prompt: str) -> None:
+        super().__init__(model, system_prompt, base_url="https://api.x.ai/v1")
+        self.client = OpenAI(
+            api_key=os.getenv("GROK_API_KEY"),
+            base_url="https://api.x.ai/v1"
+        )
+        self.model = model
+        self.is_o1_model = False
+
+    @staticmethod
+    def get_available_models() -> List[str]:
+        client = OpenAI(
+            api_key=os.getenv("GROK_API_KEY"),
+            base_url="https://api.x.ai/v1"
+        )
+        models = client.models.list()
+        return [model.id for model in models.data]
+
+class DeepSeekLLM(OpenAILLM):
+    def __init__(self, model: str, system_prompt: str) -> None:
+        super().__init__(model, system_prompt, base_url="https://api.deepseek.ai/v1")
+        self.client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com/v1"
+        )
+        self.model = model
+        self.is_o1_model = False
+
+    @staticmethod
+    def get_available_models() -> List[str]:
+        client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com/v1"
+        )
+        models = client.models.list()
+        return [model.id for model in models.data]
 
 class AnthropicLLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
@@ -315,6 +358,10 @@ class LLM(ABSTRACT_LLM):
             self.llm = ReplicateLLM(model, system_prompt)
         elif model in GeminiLLM.get_available_models():
             self.llm = GeminiLLM(model, system_prompt)
+        elif model in DeepSeekLLM.get_available_models():
+            self.llm = DeepSeekLLM(model, system_prompt)
+        elif model in GrokLLM.get_available_models():
+            self.llm = GrokLLM(model, system_prompt)
         else:
             raise ValueError(
                 f"Model {model} not found in available models. Available models:\n"
@@ -348,9 +395,12 @@ class LLM(ABSTRACT_LLM):
             + GroqLLM.get_available_models()
             + ReplicateLLM.get_available_models()
             + GeminiLLM.get_available_models()
+            + DeepSeekLLM.get_available_models()
+            + GrokLLM.get_available_models()
         )
 
 
 if __name__ == "__main__":
-    llm = LLM("gpt-4o", "You are a helpful assistant.")
-    print(llm.get_available_models())
+    from utils import setup_keys
+    setup_keys("keys.json")
+    print("\n".join(LLM.get_available_models()))

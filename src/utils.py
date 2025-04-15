@@ -91,7 +91,17 @@ def setup_keys(keys_path):
     if 'GOOGLE_API_KEY' not in os.environ and 'GOOGLE_API_KEY' in keys:
         os.environ["GOOGLE_API_KEY"] = keys['GOOGLE_API_KEY']
     elif 'GOOGLE_API_KEY' not in os.environ:
-        print("Warning: GOOGLE_API_KEY not found in keys.json")       
+        print("Warning: GOOGLE_API_KEY not found in keys.json")     
+
+    if "GROK_API_KEY" not in os.environ and "GROK_API_KEY" in keys:
+        os.environ["GROK_API_KEY"] = keys["GROK_API_KEY"]
+    elif "GROK_API_KEY" not in os.environ:
+        print("Warning: GROK_API_KEY not found in keys.json")
+
+    if "DEEPSEEK_API_KEY" not in os.environ and "DEEPSEEK_API_KEY" in keys:
+        os.environ["DEEPSEEK_API_KEY"] = keys["DEEPSEEK_API_KEY"]
+    elif "DEEPSEEK_API_KEY" not in os.environ:
+        print("Warning: DEEPSEEK_API_KEY not found in keys.json")
 
 
 def pass_optional_params(general_params, params):  # TODO name args better
