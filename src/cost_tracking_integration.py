@@ -25,40 +25,33 @@ from functools import wraps
 from typing import Dict, Any, Optional, List, Union
 import logging
 
-# Import the original LLM classes
 from src.llms import LLM, OpenAILLM, AnthropicLLM, GroqLLM, ReplicateLLM, GeminiLLM
 
-# Import the refactored cost tracker and MODEL_COSTS
-from test_cost_tracker import CostTracker, MODEL_COSTS
+from src.cost_tracker import CostTracker, MODEL_COSTS
 
 # --- Configuration ---
 LOG_DIR = os.environ.get('COST_LOG_DIR', 'cost_logs')
 SUMMARY_FILE = os.path.join(LOG_DIR, 'cost_summary.json')
-# Changed to .jsonl for append-only detailed log
 DETAILED_LOG_FILE = os.path.join(LOG_DIR, 'cost_detailed_log.jsonl')
-# How often to flush the detailed call buffer to the .jsonl file
-FLUSH_DETAILED_EVERY_N_CALLS = 50 # Lowered frequency for faster updates
+FLUSH_DETAILED_EVERY_N_CALLS = 50 
 
-# Setup logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-# Silence noisy library loggers
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# --- Global State (Managed by this module) ---
+
 cost_tracker_instance: Optional[CostTracker] = None
 overall_costs_by_provider: Dict[str, float] = {}
 run_history: List[Dict] = []
 detailed_calls_buffer: List[Dict] = []
-call_counter_since_last_flush: int = 0 # Renamed counter
+call_counter_since_last_flush: int = 0 
 current_run_summary: Dict[str, Any] = {}
 
-# Track models with missing cost information
 UNKNOWN_MODELS = set()
 
-# --- Helper Functions ---
 
 def _safe_load_json(file_path: str) -> Optional[Dict]:
     """Safely loads JSON from a file, returning None on error."""
@@ -98,8 +91,6 @@ def _append_jsonl(data_list: List[Dict], file_path: str):
     except IOError as e:
         log.error(f"Error appending to JSONL file {file_path}: {e}")
 
-# --- Core Logic Functions ---
-
 def load_initial_state():
     """Loads initial state ONLY from the summary file."""
     global overall_costs_by_provider, run_history
@@ -109,7 +100,7 @@ def load_initial_state():
         overall_costs_by_provider = summary_data.get("overall_costs_by_provider", {})
         run_history = summary_data.get("run_history", [])
         log.info(f"Loaded state from summary file: {SUMMARY_FILE}")
-        # Ensure loaded costs are dict
+
         if not isinstance(overall_costs_by_provider, dict):
              log.warning("'overall_costs_by_provider' in summary was not a dict. Resetting.")
              overall_costs_by_provider = {}
@@ -132,7 +123,6 @@ def append_to_detailed_log(is_final_save=False):
 
     _append_jsonl(detailed_calls_buffer, DETAILED_LOG_FILE)
 
-    # Clear buffer and reset counter
     detailed_calls_buffer = []
     call_counter_since_last_flush = 0
 
@@ -142,7 +132,6 @@ def save_summary_log():
 
     log.info(f"Saving summary log: {SUMMARY_FILE}")
 
-    # Ensure current run is updated in the history list
     found = False
     for i, run in enumerate(run_history):
         if run.get("run_id") == current_run_summary.get("run_id"):
@@ -150,17 +139,13 @@ def save_summary_log():
             found = True
             break
     if not found:
-        # This case should ideally not happen as we add it at the start,
-        # but add it defensively if somehow missed.
         log.warning(f"Current run {current_run_summary.get('run_id')} not found in history during save. Appending.")
         run_history.append(current_run_summary)
 
     summary_data = {
-        # Save the latest cumulative costs
         "overall_costs_by_provider": {m: round(c, 6) for m, c in overall_costs_by_provider.items()},
         "run_history": run_history
     }
-    # Overwrite the summary file with the latest state
     _save_json(summary_data, SUMMARY_FILE)
 
 def save_state_on_exit(status="completed"):
@@ -177,12 +162,8 @@ def save_state_on_exit(status="completed"):
         return
 
     try:
-        # Get final session costs from the tracker instance
         final_session_costs = cost_tracker_instance.get_current_run_summary()
-
-        # Update the global run summary object for the final time
         end_time = datetime.datetime.now()
-        # Check if start_time exists before proceeding
         if "start_time" in current_run_summary:
             start_time_obj = datetime.datetime.fromisoformat(current_run_summary["start_time"])
             duration = (end_time - start_time_obj).total_seconds()
@@ -198,14 +179,9 @@ def save_state_on_exit(status="completed"):
             model: round(cost, 6) for model, cost in final_session_costs.get("by_model", {}).items()
         }
 
-        # --- Perform Final Saves --- 
-        # Flush remaining calls to the detailed append-only log first
         append_to_detailed_log(is_final_save=True)
-        # Then save the final summary file (overwrites)
         save_summary_log()
-        # --- End Final Saves --- 
 
-        # Print summary for the user
         print("\n--- Cost Summary for Run ---")
         print(f"Run ID: {current_run_summary.get('run_id')}")
         print(f"Status: {current_run_summary['status']}")
@@ -218,13 +194,11 @@ def save_state_on_exit(status="completed"):
 
     except Exception as e:
         log.error(f"Failed during exit handler: {e}", exc_info=True)
-        # Attempt to save summary anyway if something failed
         try:
             save_summary_log()
         except Exception as final_save_e:
             log.error(f"Failed even attempting final summary save: {final_save_e}", exc_info=True)
 
-# --- Decorator --- 
 
 def track_chat_call(func):
     """
@@ -232,14 +206,12 @@ def track_chat_call(func):
     """
     @wraps(func)
     def wrapper(self, prompt, *args, **kwargs):
-        # Use renamed counter
         global call_counter_since_last_flush, overall_costs_by_provider, detailed_calls_buffer, UNKNOWN_MODELS
 
         if not cost_tracker_instance or not current_run_summary:
              log.error("Cost tracking called before initialization.")
              return func(self, prompt, *args, **kwargs)
 
-        # --- Pre-call setup ---
         try:
             if isinstance(self, LLM) and hasattr(self, 'llm') and hasattr(self.llm, 'messages'):
                 pre_call_messages = self.llm.messages.copy()
@@ -249,55 +221,43 @@ def track_chat_call(func):
         except Exception: pre_call_messages = []
         request_id = str(uuid.uuid4())
         start_time = time.time()
-        # --- End pre-call setup ---
 
-        # Call the original function
         response = func(self, prompt, *args, **kwargs)
         exec_time = time.time() - start_time
 
-        # Skip tracking on error response
         if isinstance(response, str) and response.startswith(("Error:", "Unexpected error:")):
             return response
 
-        # --- Post-call processing --- 
         try:
-            # Get model name
             if isinstance(self, LLM) and hasattr(self, 'model'): model = self.model
             else: model = getattr(self, 'model', 'unknown')
 
-            # Check if model cost is known
             if model not in MODEL_COSTS and model not in UNKNOWN_MODELS:
                 UNKNOWN_MODELS.add(model)
                 log.warning(f"No cost information for model '{model}'. Using fallback approximation.")
                 try:
-                    # Log unknown models separately
                     with open(os.path.join(LOG_DIR, 'unknown_models.txt'), 'a') as f: f.write(f"{model}\n")
                 except IOError: pass
 
-            # Prepare messages and response for tracking
             messages_for_tracking = pre_call_messages.copy()
             if not messages_for_tracking or messages_for_tracking[-1].get('role') != 'user':
                 messages_for_tracking.append({"role": "user", "content": prompt})
             response_text = response.get('content', response) if isinstance(response, dict) else str(response)
 
-            # Check for caching indicators
             cached = bool(kwargs.get('cached') or kwargs.get('use_cache'))
 
-            # Get cost details from the session tracker instance
             call_details = cost_tracker_instance.track_chat_completion(
                 model=model,
                 messages=messages_for_tracking,
                 response=response_text,
-                metadata=None, # Build metadata for detailed log separately
+                metadata=None, 
                 cached_input=cached
             )
             cost = call_details["cost"]
 
-            # Update OVERALL cumulative costs (in memory)
             overall_costs_by_provider.setdefault(model, 0.0)
             overall_costs_by_provider[model] = round(overall_costs_by_provider[model] + cost, 6)
 
-            # --- Prepare detailed entry for .jsonl log --- 
             metadata_for_log = {
                 "run_id": current_run_summary.get("run_id", "unknown_run"),
                 "execution_time": exec_time,
@@ -328,21 +288,17 @@ def track_chat_call(func):
                 "metadata": metadata_for_log
             }
             detailed_calls_buffer.append(detailed_entry)
-            # --- End prepare detailed entry --- 
 
-            # Increment counter and check for flush trigger
-            call_counter_since_last_flush += 1 # Use renamed counter
+            call_counter_since_last_flush += 1 
             if call_counter_since_last_flush >= FLUSH_DETAILED_EVERY_N_CALLS:
-                append_to_detailed_log() # Flush buffer to .jsonl
+                append_to_detailed_log()
 
         except Exception as e:
             log.error(f"Error during cost tracking post-call processing: {e}", exc_info=True)
-        # --- End post-call processing ---
 
         return response
     return wrapper
 
-# --- Initialization Function --- 
 
 def wrap_llms_for_cost_tracking():
     """Initializes the simplified cost tracking system."""
@@ -350,21 +306,20 @@ def wrap_llms_for_cost_tracking():
 
     log.info("Initializing simplified cost tracking integration...")
     try:
-        # Load state ONLY from summary file
+
         load_initial_state()
 
-        # Instantiate the session tracker
         cost_tracker_instance = CostTracker()
 
-        # Prepare summary for the current run
+
         run_id = str(uuid.uuid4())
         start_time = datetime.datetime.now().isoformat()
         current_run_summary = {
             "run_id": run_id,
             "start_time": start_time,
             "status": "started",
-            "total_cost": 0.0, # Updated on exit
-            "costs_by_provider": {}, # Updated on exit
+            "total_cost": 0.0, 
+            "costs_by_provider": {}, 
             "metadata": {
                 "run_id": run_id,
                 "start_time": start_time,
@@ -373,20 +328,15 @@ def wrap_llms_for_cost_tracking():
                 "user": os.environ.get("USER", "unknown"),
             }
         }
-        # Immediately add placeholder to run_history (in memory)
         run_history.append(current_run_summary)
-        # Save summary immediately to log the start of the run
-        # This also persists any loaded state if the run fails early
         save_summary_log()
 
-        # Patch the LLM methods
         OpenAILLM.chat = track_chat_call(OpenAILLM.chat)
         AnthropicLLM.chat = track_chat_call(AnthropicLLM.chat)
         GroqLLM.chat = track_chat_call(GroqLLM.chat)
         ReplicateLLM.chat = track_chat_call(ReplicateLLM.chat)
         GeminiLLM.chat = track_chat_call(GeminiLLM.chat)
 
-        # Register the exit handler
         atexit.register(save_state_on_exit)
 
         log.info(f"✅ Simplified cost tracking initialized. Run ID: {run_id}")
@@ -397,7 +347,6 @@ def wrap_llms_for_cost_tracking():
     except Exception as e:
         log.error(f"Fatal error during cost tracking initialization: {e}", exc_info=True)
 
-# --- Optional Helper Functions (Remain the same) ---
 
 def get_current_run_cost_summary() -> Dict:
     """Returns the current cost summary for THIS run only."""
@@ -413,6 +362,5 @@ def get_run_history() -> List:
     """Returns the history of all logged runs."""
     return run_history.copy()
 
-# Call the initialization function immediately when this module is imported
 wrap_llms_for_cost_tracking()
 
