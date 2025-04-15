@@ -42,12 +42,13 @@ def generate_and_format_dataset(general_params: dict, generation_params: dict, p
     return df
 
 
-def calculate_and_visualize_scores(prompts: list, generative_prompts, config: dict, prompt_object: PromptBase) -> tuple:
+def calculate_and_visualize_scores(prompts: list, generative_prompts, config: dict, prompt_object: PromptBase, misinformation=None) -> tuple:
 
     relevance_score, relevance_system_prompt, relevance_prompt, passed_evaluation = calculate_prompt_scores(
         prompts,
         **pass_optional_params(general_params=config['general_params'], params=config['QA_params']),
-        prompt_object=prompt_object
+        prompt_object=prompt_object,
+        misinformation=misinformation
     )
 
     df = pd.DataFrame({
@@ -126,7 +127,10 @@ def pipeline(evaluations_config_file, output_folder = "output"):
 
             if "QA_params" in config:
 
-                df_scores, scores_html = calculate_and_visualize_scores(df_generate['prompt'].tolist(), df_generate['generative_prompt'].tolist(), config, prompt_object)
+                df_scores, scores_html = calculate_and_visualize_scores(
+                    df_generate['prompt'].tolist(), df_generate['generative_prompt'].tolist(), config, prompt_object,
+                    misinformation=df_generate['misinformation'].tolist() if 'misinformation' in df_generate.columns else None
+                )
                 passed_qa_df = df_scores[df_scores['passed_evaluation']].reset_index(drop=True)
 
                 html_out += scores_html
@@ -159,4 +163,5 @@ def pipeline(evaluations_config_file, output_folder = "output"):
 
 
 if __name__ == '__main__':
-    argh.dispatch_command(pipeline)
+    # argh.dispatch_command(pipeline)
+    pipeline("dummy_config.yaml")

@@ -39,12 +39,16 @@ def calculate_prompt_scores(
         prompt_object: PromptBase,
         n_relevant_prompts,
         use_cache, 
-        refresh_cache
+        refresh_cache,
+        misinformation=None,
 ) -> Dict[str, list]:
 
     relevance_scores = [None] * len(prompts)
     relevance_system_prompts = [prompt_object.relevance_check_system_prompt()] * len(prompts)
-    relevance_prompts = [prompt_object.relevance_check_prompt(prompt) for prompt in prompts]
+    if misinformation is not None:
+        relevance_prompts = [prompt_object.relevance_check_prompt(prompt, misinformation) for prompt, misinformation in zip(prompts, misinformation)]
+    else:
+        relevance_prompts = [prompt_object.relevance_check_prompt(prompt) for prompt in prompts]
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
 
