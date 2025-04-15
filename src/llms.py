@@ -4,14 +4,10 @@ from threading import Lock
 from typing import Any, Dict, Optional, List
 
 from openai import OpenAI
-import openai
 import anthropic
 from groq import Groq
-import groq
 import replicate
 import google.generativeai as genai
-import google
-from google.api_core import exceptions
 
 
 class ABSTRACT_LLM(ABC):
@@ -334,8 +330,6 @@ class LLM(ABSTRACT_LLM):
         return_json=False,
         return_logprobs=False,
     ):
-
-        # try:
         
         return self.llm.chat(
             prompt=prompt,
@@ -345,13 +339,6 @@ class LLM(ABSTRACT_LLM):
             return_json=return_json,
             return_logprobs=return_logprobs,
         )
-        
-        # except (openai.BadRequestError, TypeError) as e:
-        #     return f"Error: {e}<score>-1</score>"
-        # except google.generativeai.types.generation_types.StopCandidateException as e:
-        #     return f"Error: {e}<score>-1</score>"
-        # except Exception as e:
-        #     return f"Unexpected error: {e}<score>-1</score>"
 
     @staticmethod
     def get_available_models():
@@ -367,9 +354,3 @@ class LLM(ABSTRACT_LLM):
 if __name__ == "__main__":
     llm = LLM("gpt-4o", "You are a helpful assistant.")
     print(llm.get_available_models())
-
-    # simplified code to just get a list of available models Jacy 0329
-    # from utils import setup_keys
-    # setup_keys("keys.json")
-    # llm = LLM("gpt-4o", "You are a helpful assistant.")
-    # print(llm.get_available_models())
