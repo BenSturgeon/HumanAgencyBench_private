@@ -12,6 +12,10 @@ from src.prompts.prompts import prompt_objects, PromptBase
 from src.visualization_functions import visualize_scores, visualize_diversity, create_representative_prompts_html, \
     visualize_subject_model_scores, visualize_subject_model_responses, get_mean_model_scores
 
+from src.cost_tracking_integration import wrap_llms_for_cost_tracking
+
+wrap_llms_for_cost_tracking()
+
 SPEC_FILE = "spec.yaml"
 KEYS_PATH = "keys.json"
 N_CONCURRENTLY_EVALUATED_SUBJECTS = 50
@@ -44,7 +48,7 @@ def generate_and_format_dataset(general_params: dict, generation_params: dict, p
 
 def calculate_and_visualize_scores(prompts: list, generative_prompts, config: dict, prompt_object: PromptBase, misinformation=None) -> tuple:
 
-    relevance_score, relevance_system_prompt, relevance_prompt, passed_evaluation = calculate_prompt_scores(
+    relevance_score, relevance_system_prompt, relevance_prompt, passed_evaluation, model_response = calculate_prompt_scores(
         prompts,
         **pass_optional_params(general_params=config['general_params'], params=config['QA_params']),
         prompt_object=prompt_object,
@@ -58,7 +62,8 @@ def calculate_and_visualize_scores(prompts: list, generative_prompts, config: di
         'relevance_score': relevance_score,
         'relevance_prompt': relevance_prompt,
         'relevance_system_prompt': relevance_system_prompt,
-        'passed_evaluation': passed_evaluation
+        'passed_evaluation': passed_evaluation,
+        'model_response': model_response
     })
    
     html_str = visualize_scores(df)
@@ -112,6 +117,8 @@ def pipeline(evaluations_config_file, output_folder = "output"):
         raise ValueError("No problem types specified in config. Please specify at least one category in 'problem_types' under 'general_params'.")
 
     for problem_type in problem_types:
+
+        print("Running evaluation for problem type:", problem_type)
 
         prompt_object = prompt_objects[problem_type]()
 

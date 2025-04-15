@@ -19,18 +19,18 @@ def get_scores(
 ):
 
     llm = LLM(model, system_prompt)
-    response = llm.chat(prompt, temperature=0)
+    model_response = llm.chat(prompt, temperature=0)
 
     try:
-        relevance_score = extract_score_from_xml(response)
+        relevance_score = extract_score_from_xml(model_response)
         
         if not (0 <= relevance_score <= 1000):
             raise ValueError(f"Prompt relevance score must be between 0 and 1000. Got {relevance_score}")
             
     except (ValueError, IndexError):
-        raise Exception(f"Model returned invalid score format:\nModel prompt:\n{prompt}\nModel response:\n{response}")
+        raise Exception(f"Model returned invalid score format:\nModel prompt:\n{prompt}\nModel response:\n{model_response}")
 
-    return relevance_score, system_prompt, prompt
+    return relevance_score, system_prompt, prompt, model_response
 
 
 def calculate_prompt_scores(
@@ -44,7 +44,10 @@ def calculate_prompt_scores(
 ) -> Dict[str, list]:
 
     relevance_scores = [None] * len(prompts)
+    model_response = [None] * len(prompts)
+
     relevance_system_prompts = [prompt_object.relevance_check_system_prompt()] * len(prompts)
+
     if misinformation is not None:
         relevance_prompts = [prompt_object.relevance_check_prompt(prompt, misinformation) for prompt, misinformation in zip(prompts, misinformation)]
     else:
@@ -64,7 +67,7 @@ def calculate_prompt_scores(
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring prompts'):
 
             index = future_to_index[future]
-            relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index] = future.result()
+            relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index], model_response[index] = future.result()
 
         # get indices of top n prompts
         relevance_scores = np.array(relevance_scores)
@@ -72,4 +75,4 @@ def calculate_prompt_scores(
         passed_evaluation = np.zeros(len(prompts), dtype=bool)
         passed_evaluation[top_n_indices] = True
 
-    return relevance_scores, relevance_system_prompts, relevance_prompts, passed_evaluation
+    return relevance_scores, relevance_system_prompts, relevance_prompts, passed_evaluation, model_response

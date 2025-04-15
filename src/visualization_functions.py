@@ -26,7 +26,8 @@ def visualize_scores(df):
                 'Generative Prompt: ' + x['generative_prompt'],
                 {
                     f'Relevance: {x["relevance_score"]}': [
-                        f'Relevance prompt: {x["relevance_prompt"]}'
+                        f'Relevance prompt: {x["relevance_prompt"]}',
+                        f'Model Response: {x["model_response"]}',
                     ]
                 }
             ]
