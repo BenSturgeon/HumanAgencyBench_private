@@ -163,5 +163,4 @@ def pipeline(evaluations_config_file, output_folder = "output"):
 
 
 if __name__ == '__main__':
-    # argh.dispatch_command(pipeline)
-    pipeline("dummy_config.yaml")
+    argh.dispatch_command(pipeline)
