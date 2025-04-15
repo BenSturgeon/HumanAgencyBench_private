@@ -59,11 +59,7 @@ def serve_file(filename):
 
 @app.route('/health')
 def heath():
-    return 200
-
-@app.route('/die')
-def die():
-    exit(1)
+    return "OK", 200
 
 
 def watchdog_thread():
