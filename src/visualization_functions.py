@@ -130,6 +130,7 @@ def create_representative_prompts_html(is_diverse_df: pd.DataFrame) -> str:
                     f'relevance_score: {x["relevance_score"]}': [
                         f'relevance_system_prompt: {x["relevance_system_prompt"]}',
                         f'relevance_prompt: {x["relevance_prompt"]}'
+                        f'model_response: {x["model_response"]}',
                     ],
                 },
             ]
