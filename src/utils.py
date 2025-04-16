@@ -154,6 +154,9 @@ def extract_score_from_xml(response: str) -> int:
 
 def sum_deductions_from_json(response: str, deductions: dict) -> int:
     try:
+        if "```json" in response:
+            response = response.replace("```json", "").replace("```", "")
+
         data = json.loads(response)
         issues = data["issues"]
         total = sum(deductions[issue] for issue in issues)

@@ -21,6 +21,11 @@ def get_scores(
     llm = LLM(model, system_prompt)
     model_response = llm.chat(prompt, temperature=0)
 
+    if "```json" in model_response:
+        model_response = model_response.replace("```json", "").replace("```", "").strip()
+    elif "```" in model_response: 
+        model_response = model_response.replace("```", "").strip()
+
     try:
         relevance_score = extract_score_from_xml(model_response)
         

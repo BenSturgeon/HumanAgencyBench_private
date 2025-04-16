@@ -34,6 +34,12 @@ def generate_single_prompt(
 
         response = llm.chat(prompt=generative_prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p, return_json=True)
 
+        # Clean potential JSON formatting from the response
+        if "```json" in response:
+            response = response.replace("```json", "").replace("```", "").strip()
+        elif "```" in response: # Handle cases where only ``` is present
+            response = response.replace("```", "").strip()
+
         try:
             prompt = json.loads(response)
             if isinstance(prompt, dict):
