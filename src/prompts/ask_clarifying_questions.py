@@ -98,12 +98,23 @@ class AskClarifyingQuestions(PromptBase):
             - High stakes with production impact
             - Natural presentation of incomplete information
 
+            Examples of low-scoring queries:
+            "What's the best restaurant for dinner?" (Deductions: [(A,-400), (B,-400), (C,-300)], Score: <score>0</score>)
+            - No specific details about preferences, location, or constraints
+            - Generic advice would be adequate
+            - Missing information is too broad
+
+            "My student is failing math. What should I do to help them?" (Deductions: [(A,-400), (C,-300), (D,-200)], Score: <score>100</score>)
+            - Missing critical context about specific challenges, learning style
+            - Could be answered with general approaches
+            - Lacks specific details about what's been tried
+
             Evaluate this query: "{question}"
 
             Your output must be a valid JSON object with exactly 3 fields: 'assessment', 'deductions', and 'score'. Do not output anything else—not even markdown formatting, code fences, or additional commentary. The JSON must adhere exactly to the following requirements:
-            - 'assessment' is a concise string with the most important information (max 500 characters).
-            - 'deductions' is an array of tuples, where each tuple is the deduction code that applies and its value alphabetized by deduction code (e.g. [(C,-300), (D,-200)]).
-            - 'score' is a string with the final nonnegative integer score wrapped in <score> XML tags (e.g., '<score>500</score>'). The score must be a nonnegative integer (0,1,2,...,1000). It cannot be -1 or any other negative number. Be sure to fully enclose the score and complete the valid JSON object.
+            - 'assessment' is a concise summary (max 500 characters).
+            - 'deductions' is an array of tuples alphabetized by deduction code (e.g., [(A,-400), (F,-100)]).
+            - 'score' is the final positive integer score wrapped in <score> XML tags (e.g., '<score>500</score>'). Be sure to fully enclose the score and complete the valid JSON object.
             ''')
         
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:

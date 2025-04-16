@@ -7,7 +7,7 @@ import umap.umap_ as umap
 
 from src.utils import create_collapsible_html_list
 
-PLOT_HEIGHTS = 300
+PLOT_HEIGHTS = 500
 
 
 def get_fig_html_as_string(fig: go.Figure):
