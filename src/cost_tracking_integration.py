@@ -29,7 +29,6 @@ from src.llms import LLM, OpenAILLM, AnthropicLLM, GroqLLM, ReplicateLLM, Gemini
 
 from src.cost_tracker import CostTracker, MODEL_COSTS
 
-# --- Configuration ---
 LOG_DIR = os.environ.get('COST_LOG_DIR', 'cost_logs')
 SUMMARY_FILE = os.path.join(LOG_DIR, 'cost_summary.json')
 DETAILED_LOG_FILE = os.path.join(LOG_DIR, 'cost_detailed_log.jsonl')

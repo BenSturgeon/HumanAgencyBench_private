@@ -62,6 +62,7 @@ MODEL_COSTS = {
     "models/gemini-1.5-flash": {"input": 0.000075, "output": 0.000300},  # 1M context; >128K prompt costs double
     "models/gemini-2.0-flash-lite": {"input": 0.000075, "output": 0.000300},  # 1M context; economical "Flash-Lite" model
     "models/gemini-2.0-flash": {"input": 0.00010, "output": 0.00040},  # 1M context; multimodal (text/image/video)
+    "models/gemini-2.5-pro-preview-03-25": {"input": 0.00125, "output": 0.01000},  # 1M context; input free for ≤200k tokens, $0.00250 for >200k tokens
     
     # Free/Open models (with providers' prices where applicable)
     "gemma2-9b-it": {"input": 0.00000, "output": 0.00000},  # Open-source 9B model; free to use
