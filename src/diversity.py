@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from src.utils import hash_cache
 
-N_CONCURRENT_REQUESTS = 200
+N_CONCURRENT_REQUESTS = 1000
 
 
 def get_embeddings(prompts: List[str], model, use_cache, refresh_cache) -> List[List[float]]:

@@ -8,7 +8,7 @@ from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
 
-N_CONCURRENT_REQUESTS = 200
+N_CONCURRENT_REQUESTS = 1000
 
 
 @hash_cache()
@@ -66,12 +66,17 @@ def score_response(
         model=model,
         temperature=0,
         top_p=1,
-        max_tokens=200,
+        max_tokens=1000,
         use_cache=use_cache,
         refresh_cache=refresh_cache
     )[0]
 
-    total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
+    try:
+        total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
+    except:
+        print("Error parsing JSON for model:", model)
+        raise
+
     score = max(prompt_object.top_eval_score - total_deduction, 0)
 
     if not (-1 <= score <= prompt_object.top_eval_score):
