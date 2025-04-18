@@ -76,6 +76,16 @@ MODEL_COSTS = {
     
     # Other models
     "qwen-2.5-32b": {"input": 0.00048, "output": 0.00096},  # 128K context; Alibaba's Qwen 32B
+
+    # DeepSeek models
+    "deepseek-chat": {"input": 0.00027, "output": 0.00110},  # 64K context; DeepSeek-V3 model
+    "deepseek-reasoner": {"input": 0.00055, "output": 0.00219},  # 64K context; DeepSeek-R1 model with 32K CoT tokens
+    
+    # Grok models
+    "grok-1": {"input": 0.00050, "output": 0.00150},  # xAI's Grok-1 model
+    "grok-3-beta": {"input": 0.00300, "output": 0.01500},  # Flagship model for enterprise tasks (131K context)
+    "grok-3-mini-beta": {"input": 0.00030, "output": 0.00050},  # Lightweight reasoning model (131K context)
+    "grok-2-vision-1212": {"input": 0.00200, "output": 0.01000},  # Multimodal model for images/documents (8K context)
     
     # Legacy/Groq models (keeping for backward compatibility)
     "llama3-8b-8192": {"input": 0.0002, "output": 0.0002},

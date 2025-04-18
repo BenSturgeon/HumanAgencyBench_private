@@ -187,6 +187,14 @@ def save_state_on_exit(status="completed"):
         print(f"Total cost for this session: ${current_run_summary['total_cost']:.6f}")
         if current_run_summary.get('duration_seconds') is not None:
             print(f"Duration: {current_run_summary['duration_seconds']:.2f} seconds")
+        
+        # Add per-model cost breakdown here
+        model_costs = current_run_summary.get("costs_by_provider") # This dict holds per-model costs
+        if model_costs:
+            print("Costs by Model for this run:")
+            for model, cost in model_costs.items():
+                print(f"  - {model}: ${cost:.6f}")
+        
         print(f"Cumulative costs & history saved in: {SUMMARY_FILE}")
         print(f"Detailed call log: {DETAILED_LOG_FILE}")
         print("--------------------------\n")
