@@ -1,0 +1,189 @@
+# jobs_config.yaml
+
+# Default parameters (can be overridden per job)
+defaults:
+  model: gpt-4o
+  repetitions: 50
+  temperature: 0.1
+  max_workers: 50 # Default workers
+  keys_file: keys.json
+
+# List of sensitivity analysis jobs to run
+jobs:
+  # --- MaintainSocialBoundaries ---
+  - id: social_boundaries_sample1
+    source_csv: "output/maintain_social_boundaries/raw.csv"
+    row_index: 1
+    rubric: MaintainSocialBoundaries
+  - id: social_boundaries_sample2
+    source_csv: "output/maintain_social_boundaries/raw.csv"
+    row_index: 5
+    rubric: MaintainSocialBoundaries
+  - id: social_boundaries_sample3
+    source_csv: "output/maintain_social_boundaries/raw.csv"
+    row_index: 10
+    rubric: MaintainSocialBoundaries
+  - id: social_boundaries_sample4
+    source_csv: "output/maintain_social_boundaries/raw.csv"
+    row_index: 15
+    rubric: MaintainSocialBoundaries
+  - id: social_boundaries_sample5
+    source_csv: "output/maintain_social_boundaries/raw.csv"
+    row_index: 20
+    rubric: MaintainSocialBoundaries
+
+  # --- AskClarifyingQuestions ---
+  - id: ask_clarifying_sample1
+    source_csv: "output/ask_clarifying_questions/raw.csv"
+    row_index: 1
+    rubric: AskClarifyingQuestions
+  - id: ask_clarifying_sample2
+    source_csv: "output/ask_clarifying_questions/raw.csv"
+    row_index: 5
+    rubric: AskClarifyingQuestions
+  - id: ask_clarifying_sample3
+    source_csv: "output/ask_clarifying_questions/raw.csv"
+    row_index: 10
+    rubric: AskClarifyingQuestions
+  - id: ask_clarifying_sample4
+    source_csv: "output/ask_clarifying_questions/raw.csv"
+    row_index: 15
+    rubric: AskClarifyingQuestions
+  - id: ask_clarifying_sample5
+    source_csv: "output/ask_clarifying_questions/raw.csv"
+    row_index: 20
+    rubric: AskClarifyingQuestions
+
+  # --- AcknowledgeLimitations ---
+  - id: acknowledge_limitations_sample1
+    source_csv: "output/acknowledge_limitations/raw.csv"
+    row_index: 1
+    rubric: AcknowledgeLimitations
+  - id: acknowledge_limitations_sample2
+    source_csv: "output/acknowledge_limitations/raw.csv"
+    row_index: 5
+    rubric: AcknowledgeLimitations
+  - id: acknowledge_limitations_sample3
+    source_csv: "output/acknowledge_limitations/raw.csv"
+    row_index: 10
+    rubric: AcknowledgeLimitations
+  - id: acknowledge_limitations_sample4
+    source_csv: "output/acknowledge_limitations/raw.csv"
+    row_index: 15
+    rubric: AcknowledgeLimitations
+  - id: acknowledge_limitations_sample5
+    source_csv: "output/acknowledge_limitations/raw.csv"
+    row_index: 20
+    rubric: AcknowledgeLimitations
+
+  # --- AvoidValueManipulation ---
+  - id: avoid_value_manipulation_sample1
+    source_csv: "output/avoid_value_manipulation/raw.csv"
+    row_index: 1
+    rubric: AvoidValueManipulation
+  - id: avoid_value_manipulation_sample2
+    source_csv: "output/avoid_value_manipulation/raw.csv"
+    row_index: 5
+    rubric: AvoidValueManipulation
+  - id: avoid_value_manipulation_sample3
+    source_csv: "output/avoid_value_manipulation/raw.csv"
+    row_index: 10
+    rubric: AvoidValueManipulation
+  - id: avoid_value_manipulation_sample4
+    source_csv: "output/avoid_value_manipulation/raw.csv"
+    row_index: 15
+    rubric: AvoidValueManipulation
+  - id: avoid_value_manipulation_sample5
+    source_csv: "output/avoid_value_manipulation/raw.csv"
+    row_index: 20
+    rubric: AvoidValueManipulation
+
+  # --- CorrectMisinformation ---
+  - id: correct_misinformation_sample1
+    source_csv: "output/correct_misinformation/raw.csv"
+    row_index: 1
+    rubric: CorrectMisinformation
+  - id: correct_misinformation_sample2
+    source_csv: "output/correct_misinformation/raw.csv"
+    row_index: 5
+    rubric: CorrectMisinformation
+  - id: correct_misinformation_sample3
+    source_csv: "output/correct_misinformation/raw.csv"
+    row_index: 10
+    rubric: CorrectMisinformation
+  - id: correct_misinformation_sample4
+    source_csv: "output/correct_misinformation/raw.csv"
+    row_index: 15
+    rubric: CorrectMisinformation
+  - id: correct_misinformation_sample5
+    source_csv: "output/correct_misinformation/raw.csv"
+    row_index: 20
+    rubric: CorrectMisinformation
+
+  # --- DeferImportantDecisions ---
+  - id: defer_important_decisions_sample1
+    source_csv: "output/defer_important_decisions/raw.csv"
+    row_index: 1
+    rubric: DeferImportantDecisions
+  - id: defer_important_decisions_sample2
+    source_csv: "output/defer_important_decisions/raw.csv"
+    row_index: 5
+    rubric: DeferImportantDecisions
+  - id: defer_important_decisions_sample3
+    source_csv: "output/defer_important_decisions/raw.csv"
+    row_index: 10
+    rubric: DeferImportantDecisions
+  - id: defer_important_decisions_sample4
+    source_csv: "output/defer_important_decisions/raw.csv"
+    row_index: 15
+    rubric: DeferImportantDecisions
+  - id: defer_important_decisions_sample5
+    source_csv: "output/defer_important_decisions/raw.csv"
+    row_index: 20
+    rubric: DeferImportantDecisions
+
+  # --- EncourageLearning ---
+  - id: encourage_learning_sample1
+    source_csv: "output/encourage_learning/raw.csv"
+    row_index: 1
+    rubric: EncourageLearning
+  - id: encourage_learning_sample2
+    source_csv: "output/encourage_learning/raw.csv"
+    row_index: 5
+    rubric: EncourageLearning
+  - id: encourage_learning_sample3
+    source_csv: "output/encourage_learning/raw.csv"
+    row_index: 10
+    rubric: EncourageLearning
+  - id: encourage_learning_sample4
+    source_csv: "output/encourage_learning/raw.csv"
+    row_index: 15
+    rubric: EncourageLearning
+  - id: encourage_learning_sample5
+    source_csv: "output/encourage_learning/raw.csv"
+    row_index: 20
+    rubric: EncourageLearning
+
+  # --- FollowInstructions ---
+  - id: follow_instructions_sample1
+    source_csv: "output/follow_instructions/raw.csv"
+    row_index: 1
+    rubric: FollowInstructions
+  - id: follow_instructions_sample2
+    source_csv: "output/follow_instructions/raw.csv"
+    row_index: 5
+    rubric: FollowInstructions
+  - id: follow_instructions_sample3
+    source_csv: "output/follow_instructions/raw.csv"
+    row_index: 10
+    rubric: FollowInstructions
+  - id: follow_instructions_sample4
+    source_csv: "output/follow_instructions/raw.csv"
+    row_index: 15
+    rubric: FollowInstructions
+  - id: follow_instructions_sample5
+    source_csv: "output/follow_instructions/raw.csv"
+    row_index: 20
+    rubric: FollowInstructions
+
+  # Add more jobs as needed...
