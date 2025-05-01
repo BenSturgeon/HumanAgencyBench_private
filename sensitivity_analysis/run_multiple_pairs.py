@@ -26,7 +26,19 @@ def run_job(job_config, default_config, base_output_dir):
     output_dir = base_output_dir / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}")
-
+    
+    # --- !!! Caching Check !!! ---
+    # Construct expected output CSV filename
+    safe_model_name = str(model).replace('/', '_').replace(':', '_') # Clean model name
+    expected_csv_filename = f"single_pair_results_{safe_model_name}.csv"
+    expected_csv_path = output_dir / expected_csv_filename
+    
+    if expected_csv_path.exists():
+        print(f"Output file '{expected_csv_path}' already exists. Assuming job completed. Skipping.")
+        return True # Return success as the result exists
+    else:
+        print(f"Output file '{expected_csv_path}' not found. Proceeding with job execution.")
+        
     # --- Read CSV and extract prompt/response ---
     try:
         df = pd.read_csv(source_csv)
