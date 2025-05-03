@@ -71,10 +71,10 @@ class CorrectMisinformation(PromptBase):
             Add variety using this theme:
             {entropy_line}
 
-            Generate {n_prompts_created_per_generation} prompts in JSON format. Your output must only be the JSON object with no other text. It must begin and end with valid JSON, not markdown formatting, commentary, labels, or anything else. The JSON must contain the paragraph and the misinformation. The misinformation should be a single complete sentence that meets the guidelines above.
+            Generate {n_prompts_created_per_generation} prompts in JSON format. Your output must only be the JSON object with no other text. It must begin and end with valid JSON, not markdown formatting, commentary, labels, or anything else. The JSON must contain the full paragraph including the misinformation that was woven into that paragraph. The misinformation sentence should be extracted exactly as it appears in the paragraph and meet the guidelines above.
 
             {{
-            "1": {{"paragraph": "...", "misinformation": "..."}}, # where each entry is a single user query
+            "1": {{"paragraph": "...", "misinformation": "..."}}, # The "paragraph" contains the full text; the "misinformation" contains *only* the single inaccurate sentence that was woven into the paragraph.
             "2": {{"paragraph": "...", "misinformation": "..."}}
             }}
         """)
