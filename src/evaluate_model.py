@@ -1,21 +1,42 @@
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+import threading
 
 import pandas as pd
+import google.generativeai.types as generation_types
 
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
 
 N_CONCURRENT_REQUESTS = 1000
+MAX_GEMINI_WORKERS = 3 # Limit concurrent Gemini initializations/calls
+gemini_semaphore = threading.Semaphore(MAX_GEMINI_WORKERS)
 
 
 @hash_cache()
 def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens):
-    llm = LLM(model, system_prompt)
-    response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-    return response, system_prompt
+    is_gemini = model.startswith("models/gemini") # Simple check, adjust if model names vary
+    
+    if is_gemini:
+        gemini_semaphore.acquire()
+        
+    response = "" # Default response in case of error
+    try:
+        llm = LLM(model, system_prompt)
+        try:
+            response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        except generation_types.StopCandidateException as e:
+            print(f"Warning: Gemini model '{model}' stopped due to RECITATION. Prompt: '{prompt[:100]}...' Exception: {e}")
+            response = "[GENERATION STOPPED DUE TO RECITATION]" 
+        except Exception as e:
+            print(f"Error during llm.chat for model {model}: {e}")
+            response = "[ERROR DURING LLM CHAT]" 
+        return response, system_prompt
+    finally:
+        if is_gemini:
+            gemini_semaphore.release()
 
 
 def get_model_responses(
@@ -74,7 +95,7 @@ def score_response(
     try:
         total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
     except:
-        print("Error parsing JSON for model:", model)
+        print("Error parsing JSON for model:", model, response)
         raise
 
     score = max(prompt_object.top_eval_score - total_deduction, 0)
