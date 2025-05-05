@@ -11,19 +11,37 @@ from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
 
 N_CONCURRENT_REQUESTS = 1000
-MAX_GEMINI_WORKERS = 3 # Limit concurrent Gemini initializations/calls
+MAX_GEMINI_WORKERS = 5 # Limit concurrent Gemini initializations/calls
 gemini_semaphore = threading.Semaphore(MAX_GEMINI_WORKERS)
+
+# General semaphore for most Anthropic models
+MAX_ANTHROPIC_WORKERS = 5 # Limit concurrent Anthropic calls (tune as needed)
+anthropic_semaphore = threading.Semaphore(MAX_ANTHROPIC_WORKERS)
+
+# Specific, stricter semaphore for Claude 3.7 Sonnet
+MAX_CLAUDE_3_7_WORKERS = 2 # Limit concurrent 3.7 Sonnet calls (tune as needed)
+claude_3_7_semaphore = threading.Semaphore(MAX_CLAUDE_3_7_WORKERS)
 
 
 @hash_cache()
 def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens):
-    is_gemini = model.startswith("models/gemini") # Simple check, adjust if model names vary
+    is_gemini = model.startswith("models/gemini")
+    is_claude_3_7 = model == "claude-3-7-sonnet-20250219"
+    is_other_claude = model.startswith("claude-") and not is_claude_3_7
     
-    if is_gemini:
-        gemini_semaphore.acquire()
-        
-    response = "" # Default response in case of error
+    semaphore_acquired = None # Use None to indicate no semaphore acquired initially
     try:
+        if is_gemini:
+            gemini_semaphore.acquire()
+            semaphore_acquired = 'gemini'
+        elif is_claude_3_7:
+            claude_3_7_semaphore.acquire() # Acquire specific semaphore
+            semaphore_acquired = 'claude_3_7'
+        elif is_other_claude: # Use the general check for other Claude models
+            anthropic_semaphore.acquire() # Use the general semaphore
+            semaphore_acquired = 'anthropic' # Indicate general anthropic semaphore
+            
+        response = "" # Default response in case of error
         llm = LLM(model, system_prompt)
         try:
             response = llm.chat(prompt, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
@@ -32,11 +50,23 @@ def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens)
             response = "[GENERATION STOPPED DUE TO RECITATION]" 
         except Exception as e:
             print(f"Error during llm.chat for model {model}: {e}")
-            response = "[ERROR DURING LLM CHAT]" 
+            # Check if the exception has a response attribute with status_code (common for httpx errors)
+            status_code = getattr(getattr(e, 'response', None), 'status_code', None)
+            if status_code == 429:
+                 response = "[RATE LIMIT ERROR DURING LLM CHAT]"
+            # Add check for Anthropic overload error (HTTP 529)
+            elif status_code == 529:
+                 response = "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"
+            else:
+                 response = "[ERROR DURING LLM CHAT]" 
         return response, system_prompt
     finally:
-        if is_gemini:
+        if semaphore_acquired == 'gemini':
             gemini_semaphore.release()
+        elif semaphore_acquired == 'claude_3_7':
+             claude_3_7_semaphore.release() # Release specific semaphore
+        elif semaphore_acquired == 'anthropic': # Use the general indicator
+            anthropic_semaphore.release() # Release the general semaphore
 
 
 def get_model_responses(
@@ -72,7 +102,8 @@ def score_response(
     model,
     use_cache: bool,
     refresh_cache: bool,
-    misinformation=None
+    misinformation=None,
+    evaluator_max_tokens: int = 5000
 ):
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     
@@ -81,32 +112,50 @@ def score_response(
     else:
         eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
 
-    response = model_response(
+    # Call model_response with the evaluator_max_tokens parameter
+    evaluator_response_text = model_response(
         prompt=eval_prompt,
         system_prompt=system_prompt,
         model=model,
         temperature=0,
         top_p=1,
-        max_tokens=1000,
+        max_tokens=evaluator_max_tokens, # Use the parameter here
         use_cache=use_cache,
         refresh_cache=refresh_cache
     )[0]
 
-    try:
-        total_deduction = sum_deductions_from_json(response, prompt_object.deductions)
-    except:
-        print("Error parsing JSON for model:", model, response)
-        raise
+    # Check for known error placeholders before attempting JSON parsing
+    error_placeholders = [
+        "[RATE LIMIT ERROR DURING LLM CHAT]",
+        "[ERROR DURING LLM CHAT]",
+        "[GENERATION STOPPED DUE TO RECITATION]",
+        "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"
+    ]
+
+    if evaluator_response_text in error_placeholders:
+        print(f"Warning: Evaluator model '{model}' returned an error placeholder: {evaluator_response_text}. Assigning score 0.")
+        # Assign max deduction so score becomes 0 after max(..., 0)
+        total_deduction = prompt_object.top_eval_score 
+    else:
+        try:
+            total_deduction = sum_deductions_from_json(evaluator_response_text, prompt_object.deductions)
+        except ValueError as e: # Catch parsing errors specifically
+            print(f"Error parsing JSON from evaluator '{model}'. Assigning score 0. Error: {e}")
+            print(f"Evaluator Response causing error: {evaluator_response_text}")
+            total_deduction = prompt_object.top_eval_score # Assign max deduction
 
     score = max(prompt_object.top_eval_score - total_deduction, 0)
 
-    if not (-1 <= score <= prompt_object.top_eval_score):
-        raise Exception(f"Model returned a score out of bounds. Score: {score}, Top possible score: {prompt_object.top_eval_score}") 
+    if not (0 <= score <= prompt_object.top_eval_score): # Adjusted lower bound check
+        print(f"Warning: Score calculation resulted in unexpected value. Score: {score}, Top possible score: {prompt_object.top_eval_score}, Deduction: {total_deduction}. Clamping score.")
+        score = max(0, min(score, prompt_object.top_eval_score))
     
-    return score, system_prompt, eval_prompt, response
+    # Return the original evaluator response text, even if it was an error
+    return score, system_prompt, eval_prompt, evaluator_response_text
         
 
-def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation = None):
+def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation = None,
+               evaluator_max_tokens: int = 5000):
 
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
@@ -123,7 +172,8 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
                 model=evaluator_model,
                 use_cache=use_cache,
                 refresh_cache=refresh_cache,
-                misinformation=misinformation[i] if misinformation else None
+                misinformation=misinformation[i] if misinformation else None,
+                evaluator_max_tokens=evaluator_max_tokens
             ): i for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
         }
         for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Scoring responses: {subject_model}'):
@@ -135,15 +185,31 @@ def get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_c
 
 def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temperature, 
                    subject_model_top_p, subject_max_tokens, prompt_object,
-                   use_cache, refresh_cache, misinformation=None):
+                   use_cache, refresh_cache, misinformation=None,
+                   evaluator_max_tokens: int = 5000, 
+                   gemini_max_tokens: int = 3000): # Note: gemini_max_tokens default isn't used if passed from config
 
     subject_model_system_prompt = [prompt_object.subject_model_system_prompt() for _ in range(len(prompts))]
 
+    # Select the appropriate max_tokens based on the specific subject model
+    specific_gemini_models = [
+        "models/gemini-2.5-pro-preview-03-25",
+        "models/gemini-2.5-flash-preview-04-17"
+    ]
+    
+    # Apply gemini_max_tokens if the model is one of the specific Gemini models
+    if subject_model in specific_gemini_models:
+        current_subject_max_tokens = gemini_max_tokens
+        print(f"Using gemini_max_tokens ({gemini_max_tokens}) for {subject_model}") # Optional: logging
+    else:
+        current_subject_max_tokens = subject_max_tokens
+
     subject_responses, subject_system_prompts = get_model_responses(prompts, subject_model_system_prompt, subject_model, subject_model_temperature, subject_model_top_p, 
-                             subject_max_tokens, use_cache, refresh_cache)
+                             current_subject_max_tokens, use_cache, refresh_cache) 
     
     scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \
-        get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation)
+        get_scores(prompts, subject_responses, prompt_object, evaluator_model, use_cache, refresh_cache, subject_model, misinformation,
+                   evaluator_max_tokens=evaluator_max_tokens)
     
     return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
 
@@ -158,7 +224,9 @@ def evaluate_many_subject_models(
     prompt_object: PromptBase,
     use_cache: bool,
     refresh_cache: bool,
-    misinformation: List[str] = None
+    misinformation: List[str] = None,
+    evaluator_max_tokens: int = 5000,
+    gemini_max_tokens: int = 3000
 ) -> pd.DataFrame:
     dfs = []
 
@@ -177,7 +245,9 @@ def evaluate_many_subject_models(
                     prompt_object,
                     use_cache,
                     refresh_cache,
-                    misinformation
+                    misinformation,
+                    evaluator_max_tokens=evaluator_max_tokens,
+                    gemini_max_tokens=gemini_max_tokens
                 ): subject_model
             })
 
