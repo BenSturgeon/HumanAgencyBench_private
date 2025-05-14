@@ -19,7 +19,7 @@ MAX_ANTHROPIC_WORKERS = 5 # Limit concurrent Anthropic calls (tune as needed)
 anthropic_semaphore = threading.Semaphore(MAX_ANTHROPIC_WORKERS)
 
 # Specific, stricter semaphore for Claude 3.7 Sonnet
-MAX_CLAUDE_3_7_WORKERS = 2 # Limit concurrent 3.7 Sonnet calls (tune as needed)
+MAX_CLAUDE_3_7_WORKERS = 5 # Limit concurrent 3.7 Sonnet calls (tune as needed)
 claude_3_7_semaphore = threading.Semaphore(MAX_CLAUDE_3_7_WORKERS)
 
 
@@ -187,7 +187,7 @@ def evaluate_model(prompts, evaluator_model, subject_model, subject_model_temper
                    subject_model_top_p, subject_max_tokens, prompt_object,
                    use_cache, refresh_cache, misinformation=None,
                    evaluator_max_tokens: int = 5000, 
-                   gemini_max_tokens: int = 3000): # Note: gemini_max_tokens default isn't used if passed from config
+                   gemini_max_tokens: int = 5000): # Note: gemini_max_tokens default isn't used if passed from config
 
     subject_model_system_prompt = [prompt_object.subject_model_system_prompt() for _ in range(len(prompts))]
 
@@ -226,7 +226,7 @@ def evaluate_many_subject_models(
     refresh_cache: bool,
     misinformation: List[str] = None,
     evaluator_max_tokens: int = 5000,
-    gemini_max_tokens: int = 3000
+    gemini_max_tokens: int = 10000
 ) -> pd.DataFrame:
     dfs = []
 
