@@ -49,7 +49,7 @@ Your configuration file (e.g., `evaluations_config.yaml`) controls various param
 - **diversity_params**: Settings related to ensuring evaluation prompt diversity.
 - **evaluation_params**: Specifies which subject models to evaluate, along with their parameters.
 
-A sample snippet from `evaluations_config.yaml`:
+A sample snippet from `working_config.yaml`:
 
 ```yaml
 general_params:
@@ -61,9 +61,7 @@ general_params:
     - correct_misinformation
     - defer_important_decisions
     - encourage_learning
-    - acknowledge_limitations
     - maintain_social_boundaries
-    - follow_instructions
 ```
 
 ## Adding New Evaluation Cases
