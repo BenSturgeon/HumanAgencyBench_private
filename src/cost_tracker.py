@@ -45,10 +45,11 @@ MODEL_COSTS = {
     "gpt-4o-mini": {"input": 0.00015, "output": 0.00060},  # 128K context; multimodal inputs supported
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},  # ~16K context (ChatGPT API model)
-    
+    "gpt-4.1": {"input": 0.00200, "output": 0.00800},  # 1,047,576 context; complex tasks across domains
     # OpenAI API via other platforms
     "o1-mini": {"input": 0.00300, "output": 0.01200},  # 200K context; optimized for STEM reasoning
     "o3-mini-2025-01-31": {"input": 0.00110, "output": 0.00440},  # 200K context; cost-efficient reasoning model
+    "o4-mini": {"input": 0.00110, "output": 0.00440},  # 1M context; cost-efficient model
     
     # Anthropic models
     "claude-3-7-sonnet-20250219": {"input": 0.00300, "output": 0.01500},  # 200K context; Claude 3.7 (advanced reasoning)
@@ -62,6 +63,7 @@ MODEL_COSTS = {
     "models/gemini-1.5-flash": {"input": 0.000075, "output": 0.000300},  # 1M context; >128K prompt costs double
     "models/gemini-2.0-flash-lite": {"input": 0.000075, "output": 0.000300},  # 1M context; economical "Flash-Lite" model
     "models/gemini-2.0-flash": {"input": 0.00010, "output": 0.00040},  # 1M context; multimodal (text/image/video)
+    "models/gemini-2.5-flash-preview-04-17": {"input": 0.00010, "output": 0.00040}, # Added - Using Gemini 2.0 Flash pricing as estimate
     "models/gemini-2.5-pro-preview-03-25": {"input": 0.00125, "output": 0.01000},  # 1M context; input free for ≤200k tokens, $0.00250 for >200k tokens
     
     # Free/Open models (with providers' prices where applicable)
@@ -72,7 +74,10 @@ MODEL_COSTS = {
     "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008},  # 128K context; fast 8B open model
     "llama-3.2-1b-preview": {"input": 0.00004, "output": 0.00004},  # 8K context; 1B preview model
     "llama-3.3-70b-versatile": {"input": 0.00059, "output": 0.00079},  # 128K context; 70B versatile open model
+    "meta/meta-llama-3-70b-instruct": {"input": 0.00090, "output": 0.00090}, # Added - Using common provider pricing
     "meta/meta-llama-3.1-405b-instruct": {"input": 0.00600, "output": 0.01200},  # 128K context; 405B open model
+    "meta/llama-4-maverick-instruct": {"input": 0.00025, "output": 0.00095},  # Llama 4 Maverick model (Verified key)
+    "meta/llama-4-scout-instruct": {"input": 0.00017, "output": 0.00065},  # Llama 4 Scout model (Verified key)
     
     # Other models
     "qwen-2.5-32b": {"input": 0.00048, "output": 0.00096},  # 128K context; Alibaba's Qwen 32B
