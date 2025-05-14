@@ -14,6 +14,7 @@ from collections import Counter
 import ast # For safely evaluating string lists/sets if needed
 import itertools
 import json
+import krippendorff # Added import
 
 # Set the plot style and display options
 sns.set_style("whitegrid")
@@ -60,8 +61,8 @@ if not base_output_dir.is_dir():
         raise FileNotFoundError(f"Could not find results directory either at {base_output_dir} or {base_output_dir_fallback}")
 
 # Which set of variations to analyze? ('preamble', 'issues', or 'examples')
-# set_to_analyze = "preamble"
-set_to_analyze = "issues"  
+set_to_analyze = "preamble"
+# set_to_analyze = "issues"  
 # set_to_analyze = "examples" 
 
 # How many runs were performed for each set?
@@ -637,4 +638,153 @@ def show_inconsistent_examples(df, num_examples=5):
     
 # Uncomment the line below to run this analysis
 # show_inconsistent_examples(df)
+
+def calculate_krippendorffs_alpha(df, set_name):
+    print(f"\n=== Krippendorff's Alpha for Score Consistency ({set_name} set) ===")
+    if 'prompt' not in df.columns or 'run_index' not in df.columns or 'score_numeric' not in df.columns:
+        print("Required columns ('prompt', 'run_index', 'score_numeric') not found. Skipping Krippendorff's Alpha calculation.")
+        return
+
+    # Pivot the table to get prompts as rows, runs as columns, and scores as values
+    reliability_data_df = df.pivot(index='prompt', columns='run_index', values='score_numeric')
+
+    # Transpose the DataFrame so that raters (runs) are rows and items (prompts) are columns
+    transposed_reliability_data_df = reliability_data_df.T 
+
+    # Convert to a list of lists, which is the input format expected by krippendorff.alpha (raters x items)
+    # NaNs are acceptable and will be handled by the library
+    reliability_data = transposed_reliability_data_df.values.tolist()
+
+    if not reliability_data or not reliability_data[0]:
+        print("No data available for Krippendorff's Alpha calculation after pivoting.")
+        return
+
+    try:
+        alpha = krippendorff.alpha(reliability_data=reliability_data, level_of_measurement='interval')
+        print(f"Krippendorff's Alpha (Interval Data for Scores): {alpha:.4f}")
+    except Exception as e:
+        print(f"Could not calculate Krippendorff's Alpha: {e}")
+        print("This might happen if there are too few raters or items, or if all values are identical for some items across raters.")
+        print("Reliability data sample (first 5 rows):")
+        for i in range(min(5, len(reliability_data))):
+            print(reliability_data[i])
+    print("----------------------------------------------------")
+# --- End Krippendorff's Alpha ---
+
+# %%
+
+# Basic dataset info
+basic_dataset_info(df, set_to_analyze)
+
+# Score distribution
+analyze_score_distribution(df, set_to_analyze)
+
+# Statistical tests
+stats_df = statistical_difference_tests(df, set_to_analyze)
+
+# Issue Analysis
+print(f"\n=== ISSUE ANALYSIS ({set_to_analyze} set) ===")
+if 'reported_issues_letters' in df.columns:
+    df['issue_list'] = df['reported_issues_letters'].apply(parse_issue_letters)
+    df['issue_set'] = df['issue_list'].apply(frozenset)
+    print("Processed 'reported_issues_letters' column.")
+    print("\nCounts of number of issues reported per evaluation:")
+    print(df['issue_list'].apply(len).value_counts().sort_index())
+else:
+    print("Column 'reported_issues_letters' not found. Skipping issue parsing.")
+    df['issue_list'] = [[] for _ in range(len(df))] # Create empty columns
+    df['issue_set'] = [frozenset() for _ in range(len(df))]
+
+issue_perc_df = analyze_individual_issue_frequency(df, set_to_analyze, stats_df)
+combination_freq_df = analyze_issue_combination_frequency(df, set_to_analyze)
+
+# Consistency analysis
+analyze_consistency_per_prompt(df, set_to_analyze)
+show_inconsistent_examples(df, num_examples=5) # Assuming you want this to run, it was previously commented out for the call
+
+# Krippendorff's Alpha
+calculate_krippendorffs_alpha(df, set_to_analyze)
+
+print("\n\nAnalysis complete.")
+
+# %%%%
+# --- Batch Krippendorff's Alpha Calculation for Specific Directories & Sets ---
+# This section will run after the main analysis above, iterating through specific model/set configs.
+
+print
+print("=== Batch Krippendorff's Alpha Calculation for Configured Models/Sets ===")
+
+MODEL_CONFIGS_BATCH = [
+    {"name": "Claude Sonnet AVM", "path": script_dir / "results_claude_sonnet_avm"},
+    {"name": "GPT-4.1 AVM", "path": script_dir / "results_gpt41_avm"}
+]
+
+SETS_TO_PROCESS_BATCH = ["preamble", "issues", "examples"]
+NUM_RUNS_FOR_BATCH = 3 # Assuming this is consistent for the specified batch jobs
+
+for config_batch in MODEL_CONFIGS_BATCH:
+    model_name_batch = config_batch["name"]
+    model_base_path_batch = config_batch["path"]
+    
+    for current_set_batch in SETS_TO_PROCESS_BATCH:
+        print(f"\n\n--- Processing Batch: Model: {model_name_batch}, Set: {current_set_batch} ---")
+
+        # --- Adapted Data Loading for Batch ---
+        all_dfs_batch_iter = []
+        set_dir_batch_iter = model_base_path_batch / f"set_{current_set_batch}"
+
+        if not set_dir_batch_iter.is_dir():
+            print(f"  Warning: Result directory for set '{current_set_batch}' not found at: {set_dir_batch_iter}. Skipping.")
+            continue
+
+        for run_idx_batch_iter in range(NUM_RUNS_FOR_BATCH):
+            run_dir_batch_iter = set_dir_batch_iter / f"run_{run_idx_batch_iter}"
+            file_path_batch_iter = run_dir_batch_iter / "evaluation_results.csv"
+            
+            if file_path_batch_iter.is_file():
+                try:
+                    df_run_batch_iter = pd.read_csv(file_path_batch_iter)
+                    df_run_batch_iter['run_index'] = run_idx_batch_iter
+                    
+                    if 'score' not in df_run_batch_iter.columns:
+                         print(f"    ERROR: 'score' column missing in {file_path_batch_iter}. Skipping this run file.")
+                         continue
+                    try:
+                        pd.to_numeric(df_run_batch_iter['score'], errors='raise')
+                    except (TypeError, ValueError) as e_score_check:
+                        print(f"    ERROR: Non-numeric data in 'score' column in {file_path_batch_iter} (Error: {e_score_check}). Skipping file.")
+                        continue
+                    all_dfs_batch_iter.append(df_run_batch_iter)
+                except Exception as e_load_iter:
+                    print(f"    Error loading or processing {file_path_batch_iter}: {e_load_iter}. Skipping file.")
+            else:
+                print(f"  Warning: File not found for run {run_idx_batch_iter} at {file_path_batch_iter}")
+        
+        if not all_dfs_batch_iter:
+            print(f"  No data loaded successfully for Model: {model_name_batch}, Set: {current_set_batch}. Skipping Krippendorff calculation.")
+            continue
+
+        df_batch_iter = pd.concat(all_dfs_batch_iter, ignore_index=True)
+        # print(f"  Loaded {len(df_batch_iter)} results across {len(all_dfs_batch_iter)} runs for {model_name_batch}, Set: {current_set_batch}.")
+
+        # --- Adapted Central Data Cleaning for Batch ---
+        if 'score' in df_batch_iter.columns:
+            df_batch_iter['score_numeric'] = pd.to_numeric(df_batch_iter['score'], errors='coerce')
+            if df_batch_iter['score_numeric'].isnull().all():
+                print(f"  ERROR: All 'score' values failed numeric conversion for {model_name_batch}, Set: {current_set_batch}. Skipping Krippendorff.")
+                # non_numeric_samples = df_batch_iter[df_batch_iter['score_numeric'].isnull()]['score'].unique()[:3] # Debug
+                # print(f"    Problematic 'score' samples: {non_numeric_samples}") # Debug
+                continue
+        else:
+            print(f"  'score' column not found in concatenated DataFrame for {model_name_batch}, Set: {current_set_batch}. Skipping Krippendorff.")
+            continue
+        
+        # --- Calculate and Print Krippendorff's Alpha ---
+        descriptive_set_name = f"{model_name_batch} - Set: {current_set_batch}"
+        # The calculate_krippendorffs_alpha function prints its own headers and results.
+        calculate_krippendorffs_alpha(df_batch_iter, descriptive_set_name)
+
+print("\n\n=== Batch Krippendorff's Alpha Calculation Complete ===")
+
+# %%
 
