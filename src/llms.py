@@ -33,7 +33,15 @@ class OpenAILLM(ABSTRACT_LLM):
             base_url=self.base_url,
         )
         self.model = model
-        self.is_o1_model = model.startswith("o1") or model.startswith("o3")
+        # Check if model is from the OpenAI "o" series (o1, o3, o4, etc.)
+        self.is_o1_model = model and (
+            model.startswith("o1") or 
+            model.startswith("o3") or 
+            model.startswith("o4") or
+            "o1-" in model or
+            "o3-" in model or
+            "o4-" in model
+        )
 
     def chat(
         self,
@@ -135,12 +143,10 @@ class DeepSeekLLM(OpenAILLM):
 
     @staticmethod
     def get_available_models() -> List[str]:
-        client = OpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"),
-            base_url="https://api.deepseek.com/v1"
-        )
-        models = client.models.list()
-        return [model.id for model in models.data]
+        return [
+            "deepseek-chat",
+            "deepseek-reasoner"
+        ]
 
 class AnthropicLLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
@@ -185,6 +191,7 @@ class AnthropicLLM(ABSTRACT_LLM):
             "claude-3-sonnet-20240229",
             "claude-3-haiku-20240307",
             "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022"
         ]
 
 
@@ -289,15 +296,25 @@ class ReplicateLLM(ABSTRACT_LLM):
     @staticmethod
     def get_available_models() -> list:
         return [
-            "meta/meta-llama-3.1-405b-instruct"
+            "meta/meta-llama-3.1-405b-instruct",
+            "meta/meta-llama-3-70b-instruct",
+            "meta/llama-4-scout-instruct",
+            "meta/llama-4-maverick-instruct"
         ]
 
 
 class GeminiLLM(ABSTRACT_LLM):
+
+    rate_limiting = {}
+
     def __init__(self, model: str, system_prompt: str) -> None:
         super().__init__(system_prompt)
         self.model = model
         genai.configure()
+        self.rate_limiting_interval = 180 / 50
+
+        if model not in self.rate_limiting:
+            self.rate_limiting[model] = {"last_request_time": 0, "lock": Lock()}
 
     def chat(
         self,
@@ -308,6 +325,24 @@ class GeminiLLM(ABSTRACT_LLM):
         return_json: bool = False,
         return_logprobs: bool = False
     ) -> str:
+
+        model_rate_limiter = self.rate_limiting[self.model]
+
+        while True:
+            with model_rate_limiter["lock"]:
+                current_time = time.time()
+                time_since_last = current_time - model_rate_limiter["last_request_time"]
+                
+                if time_since_last < self.rate_limiting_interval:
+                    sleep_duration = self.rate_limiting_interval - time_since_last
+                    needs_sleep = True
+                else:
+                    model_rate_limiter["last_request_time"] = current_time
+                    needs_sleep = False
+                    break
+            
+            if needs_sleep:
+                time.sleep(sleep_duration) 
 
         if return_logprobs:
             raise NotImplementedError("Gemini LLM not implemented for return_logprobs")
@@ -325,7 +360,7 @@ class GeminiLLM(ABSTRACT_LLM):
         chat = model.start_chat(history=[])
 
         if self.system_prompt:
-            chat.send_message(self.system_prompt)
+            chat.send_message(self.system_prompt) 
 
         response = chat.send_message(
             prompt,
@@ -338,34 +373,30 @@ class GeminiLLM(ABSTRACT_LLM):
 
         return response_text
 
-    @staticmethod
-    def get_available_models() -> List[str]:
-        genai.configure()
-        return [model.name for model in genai.list_models() if "generateContent" in model.supported_generation_methods]
-
 
 class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
         self.model = model
-        if model in OpenAILLM.get_available_models():
-            self.llm = OpenAILLM(model, system_prompt)
+        if model.startswith("models/gemini") or model.startswith("gemini-"):
+            self.llm = GeminiLLM(model, system_prompt)
         elif model in AnthropicLLM.get_available_models():
             self.llm = AnthropicLLM(model, system_prompt)
         elif model in GroqLLM.get_available_models():
             self.llm = GroqLLM(model, system_prompt)
         elif model in ReplicateLLM.get_available_models():
             self.llm = ReplicateLLM(model, system_prompt)
-        elif model in GeminiLLM.get_available_models():
-            self.llm = GeminiLLM(model, system_prompt)
         elif model in DeepSeekLLM.get_available_models():
             self.llm = DeepSeekLLM(model, system_prompt)
         elif model in GrokLLM.get_available_models():
             self.llm = GrokLLM(model, system_prompt)
+        elif model in OpenAILLM.get_available_models():
+            self.llm = OpenAILLM(model, system_prompt)
         else:
+            all_models = self.get_available_models()
             raise ValueError(
-                f"Model {model} not found in available models. Available models:\n"
-                + "\n".join(self.get_available_models())
+                f"Model {model} not found. Checked known types and prefixes. Available models might be:\n"
+                + "\n".join(all_models)
             )
 
     def chat(
@@ -389,15 +420,15 @@ class LLM(ABSTRACT_LLM):
 
     @staticmethod
     def get_available_models():
-        return (
+        models = (
             OpenAILLM.get_available_models()
             + AnthropicLLM.get_available_models()
             + GroqLLM.get_available_models()
             + ReplicateLLM.get_available_models()
-            + GeminiLLM.get_available_models()
             + DeepSeekLLM.get_available_models()
             + GrokLLM.get_available_models()
         )
+        return models
 
 
 if __name__ == "__main__":
