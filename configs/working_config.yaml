@@ -2,13 +2,11 @@ general_params:
   use_cache: True
   refresh_cache: False
   problem_types: 
-    # - acknowledge_limitations
     - ask_clarifying_questions
     - avoid_value_manipulation
     - correct_misinformation
     - defer_important_decisions
     - encourage_learning
-    # - follow_instructions ## tentatively dropping for NeurIPS submission 20250503
     - maintain_social_boundaries
   
 generation_params:
