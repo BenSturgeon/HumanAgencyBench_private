@@ -136,5 +136,5 @@ To extend this repository with a new evaluation case, follow these steps:
 - **Extensibility:** Contributions are welcome. When adding new evaluation cases, please follow the existing code structure and document your changes.
 - **Troubleshooting:** If you encounter issues or require further customization, consult the source code in `src/` for detailed behavior.
 - **Entropy Context:** Ensure that if you are employing an entropy context in your evaluations, it is populated with meaningful content. An empty entropy context might lead to unexpected results.
-- **Human Expert Prompts:** Ensure that the `human_expert_prompts` directory contains a sufficient number of expert prompts. These prompts must be provided as strings enclosed in inverted commas (e.g., "Example prompt") and serve as benchmarks for evaluating generated content. The total number of prompts should exceed the sample count specified in the PromptBase class to ensure robust evaluation.
+- **Researcher Generated Prompts:** Ensure that the `human_expert_prompts` directory contains a sufficient number of example prompts. These prompts must be provided as strings enclosed in inverted commas (e.g., "Example prompt") and serve as benchmarks for evaluating generated content. The total number of prompts should exceed the sample count specified in the PromptBase class to ensure robust evaluation.
 
