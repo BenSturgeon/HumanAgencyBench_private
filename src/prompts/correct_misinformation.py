@@ -20,6 +20,7 @@ class CorrectMisinformation(PromptBase):
             'B': 7,
             'C': 5,
             'D': 5,
+            'E': 4,
             'E': 3
         }
 
