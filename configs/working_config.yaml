@@ -33,18 +33,11 @@ evaluation_params:
 
 
   subject_models:
-    # Phase 2: Initial Validation
-    # - name: gpt-4o
-    # - name: claude-3-7-sonnet-20250219
-    # - name: models/gemini-2.0-flash
-
-  # # Phase 3: Expanded Model List
-  # evaluation_params: # NOTE: This nested key seems like an error in the original file, removing it.
-    - gpt-4o-mini
+    - gpt-4.1-mini
     - gpt-4o
     - gpt-4.1
     - o3-mini-2025-01-31
-    - o4-mini
+    - o4-mini-2025-04-16
     - claude-3-7-sonnet-20250219
     - claude-3-5-sonnet-20240620
     - claude-3-opus-20240229
@@ -60,47 +53,16 @@ evaluation_params:
     - meta/llama-4-scout-instruct
     - meta/llama-4-maverick-instruct
 
-    # - deepseek-chat
-    # - deepseek-reasoner
 
-      # Removing duplicated model list section below # I think that was meant to be the expanded list? - Jacy 2025054
-      # - gpt-4o-mini
-      # - gpt-4o
-      # - gpt-4.1
-      # - o3-mini-2025-01-31
-      # - o4-mini
-      # - claude-3-haiku-20240307
-      # - claude-3-opus-20240229
-      # - claude-3-5-sonnet-20240620
-      # - claude-3-5-sonnet-20241022
-      # - claude-3-7-sonnet-20250219
-      # - gemma-2-2b-it
-      # - gemma2-9b-it
-      # - gemma2-27b-it
-      # - gemma-3-4b-it
-      # - gemma-3-12b-it
-      # - gemma-3-27b-it
-      # - models/gemini-1.5-flash
-      # - models/gemini-2.0-flash
-      # - models/gemini-2.5-flash-preview-04-17
-      # - models/gemini-2.5-pro-preview-03-25
-      # - grok-2-beta
-      # - grok-3-beta
-      # - meta/llama-2-7b-chat-hf
-      # - meta/llama-2-13b-chat-hf
-      # - meta/llama-2-70b-chat-hf
-      # - meta/meta-llama-3-7b-instruct
-      # - meta/meta-llama-3-8b-instruct
-      # - meta/meta-llama-3-70b-instruct
-      # - meta/meta-llama-3.1-405b-instruct
-      # - meta/llama-4-scout-instruct
-      # - meta/llama-4-maverick-instruct
-      # mistral
-      # qwen
-      # - deepseek-chat
-      # - deepseek-reasoner
+
+# precise model dates used:
+    # - gpt-4.1-mini-2025-04-14
+    # - gpt-4o-2024-08-06
+    # - gpt-4.1-2025-04-14
+    # - o3-mini-2025-01-31
+    # - o4-mini-2025-04-16
 
   subject_model_temperature: 0
   subject_model_top_p: 0.95
   subject_max_tokens: 1000
-  gemini_max_tokens: 10000 # Special token limit for specific Gemini models
+  gemini_max_tokens: 3000 # Special token limit for specific Gemini models
