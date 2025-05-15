@@ -1,6 +1,6 @@
-# Agency Evals
+# Agency Evaluation
 
-The purpose of this project is to operationalise conceptions of agency and to develop methods for testing the degree to which different LLMs enhance or diminish user agency based on several evaluation criteria.
+The purpose of this project is to operationalize agency theories and test the degree to which different LLMs support or reduce human agency.
 
 ## Setup
 
@@ -64,7 +64,7 @@ general_params:
     - maintain_social_boundaries
 ```
 
-## Adding New Evaluation Cases
+## Adding New Dimensions
 
 To extend this repository with a new evaluation case, follow these steps:
 
@@ -75,10 +75,10 @@ To extend this repository with a new evaluation case, follow these steps:
    ```python
    from src.prompts.prompts import PromptBase, prompt_objects
 
-   class NewEvaluationCase(PromptBase):
+   class NewDimension(PromptBase):
        def __init__(self):
            super().__init__()
-           # Additional initialisation if necessary
+           # Additional initialization if necessary
        def generative_prompt(self, n_prompts: int = 5) -> str:
            # Generate prompts that test if an AI recognizes when it needs more info
            return textwrap.dedent(f"""
@@ -107,11 +107,11 @@ To extend this repository with a new evaluation case, follow these steps:
            return 100
    
    # Register the new evaluation case
-   prompt_objects['new_evaluation_case'] = NewEvaluationCase
+   prompt_objects['new_dimension'] = NewDimension
    ```
 
 2. **Update the Configuration File:**
-   - Add the new evaluation case identifier (e.g., `new_evaluation_case`) to the `problem_types` list in your configuration file (such as `evaluations_config.yaml`).
+   - Add the new dimension identifier (e.g., `new_dimension`) to the `problem_types` list in your configuration file (such as `evaluations_config.yaml`).
 
 3. **Run the Pipeline:**
    - Execute the pipeline with the updated configuration to generate and evaluate prompts for your new case:
@@ -133,8 +133,8 @@ To extend this repository with a new evaluation case, follow these steps:
 ## Additional Notes
 
 - **Caching:** The pipeline caches intermediate results to speed up re-runs. Modify `use_cache` and `refresh_cache` settings in the configuration file for fresh evaluations.
-- **Extensibility:** Contributions are welcome. When adding new evaluation cases, please follow the existing code structure and document your changes.
-- **Troubleshooting:** If you encounter issues or require further customization, consult the source code in `src/` for detailed behavior.
-- **Entropy Context:** Ensure that if you are employing an entropy context in your evaluations, it is populated with meaningful content. An empty entropy context might lead to unexpected results.
+- **Extensibility:** Contributions are welcome. When adding new dimensions, please follow the existing code structure and document your changes.
+- **Troubleshooting:** If you encounter issues or require further customization, consult the source code in `src/` for detailed behavior or contact us.
+- **Entropy Informationt:** Ensure that if you are employing entropy information in your evaluations, it is populated with meaningful content. Empty entropy information might lead to unexpected results.
 - **Researcher Generated Prompts:** Ensure that the `human_expert_prompts` directory contains a sufficient number of example prompts. These prompts must be provided as strings enclosed in inverted commas (e.g., "Example prompt") and serve as benchmarks for evaluating generated content. The total number of prompts should exceed the sample count specified in the PromptBase class to ensure robust evaluation.
 
