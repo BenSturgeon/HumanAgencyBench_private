@@ -18,16 +18,29 @@ app = Flask(__name__)
 @app.route('/')
 def list_files():
     files = []
-    for root, dirs, filenames in os.walk('output'):
-        for filename in filenames:
-            path = os.path.relpath(os.path.join(root, filename), os.getcwd())
-            if path.endswith('.html') or path.endswith('raw.csv'):
-                files.append(path)
-    
-    # Add model comparison PNG to the files list if it exists
-    if os.path.exists('model_comparison.png'):
-        files.append('model_comparison.png')
-    
+    output_dir = 'output/output'
+    # Check if 'output' directory exists before walking
+    if os.path.isdir(output_dir):
+        for root, dirs, filenames in os.walk(output_dir):
+            for filename in filenames:
+                # Construct the full path
+                full_path = os.path.join(root, filename)
+                # Get the path relative to the current working directory for linking/serving
+                relative_path = os.path.relpath(full_path, os.getcwd())
+                if relative_path.endswith('.html') or relative_path.endswith('raw.csv'):
+                    files.append(relative_path)
+
+    # Add model comparison PNG to the files list if it exists at the root
+    model_comparison_file = 'model_comparison.png'
+    if os.path.exists(model_comparison_file):
+        files.append(model_comparison_file)
+
+    # Add consistency report HTML to the files list if it exists
+    # Assuming it's in 'sensitivity_analysis' relative to cwd based on context
+    consistency_report_file = os.path.join('sensitivity_analysis', 'consistency_report.html')
+    if os.path.exists(consistency_report_file):
+        # Add the relative path for linking/serving
+        files.append(os.path.relpath(consistency_report_file, os.getcwd()))
     html = """
     <!DOCTYPE html>
     <html>
