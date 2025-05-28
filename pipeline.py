@@ -106,7 +106,7 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
     return html_out, html_scores, df
 
 
-def pipeline(evaluations_config_file, output_folder = "output"):
+def pipeline(evaluations_config_file, output_folder = "output/output"):
     
     setup_keys(KEYS_PATH)
     config = load_config(evaluations_config_file)
