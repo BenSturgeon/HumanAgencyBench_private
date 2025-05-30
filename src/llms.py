@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import time
 from threading import Lock
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Callable
 import os
 
 from openai import OpenAI
@@ -23,7 +23,53 @@ class ABSTRACT_LLM(ABC):
         pass
 
 
-class OpenAILLM(ABSTRACT_LLM):
+class AvailableModelsCache:
+
+    """A mixin for caching available models at the class level to avoid repeated API calls."""
+
+    _model_cache = {}
+    _model_cache_locks = {}
+
+    @classmethod
+    def model_cache_get(cls, tag: str, fetch_fn: Callable[[], List[str]]) -> List[str]:
+        if tag not in cls._model_cache_locks:
+            cls._model_cache_locks[tag] = Lock()
+
+        with cls._model_cache_locks[tag]:
+            if tag in cls._model_cache:
+                return cls._model_cache[tag]
+            models = fetch_fn()
+            cls._model_cache[tag] = models
+            return models
+
+
+class RateLimitedLLM:
+
+    """A mixin for rate limiting LLM requests."""
+
+    _rate_limiting = {}
+
+    def rate_limit_wait(self, tag, req_per_min: float):
+
+        interval = 60 / req_per_min
+
+        if tag not in self._rate_limiting:
+            self._rate_limiting[tag] = {"last_request": 0, "lock": Lock()}
+
+        while True:
+            with self._rate_limiting[tag]["lock"]:
+                sleep = time.monotonic() - self._rate_limiting[tag]["last_request"] < interval
+
+            if sleep:
+                time.sleep(1)
+            else:
+                with self._rate_limiting[tag]["lock"]:
+                    self._rate_limiting[tag]["last_request"] = time.monotonic()
+
+                break
+
+
+class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
     def __init__(self, model, system_prompt, base_url=None, api_key=None) -> None:
         super().__init__(system_prompt)
         self.base_url = base_url
@@ -107,10 +153,13 @@ class OpenAILLM(ABSTRACT_LLM):
             else:
                 return response_text
 
-    @staticmethod
-    def get_available_models():
-        models = OpenAI().models.list()
-        return [model.id for model in models.data]
+    @classmethod
+    def get_available_models(cls):
+        return cls.model_cache_get(
+            "openai_models",
+            lambda: [model.id for model in OpenAI().models.list().data]
+        )
+
 
 class GrokLLM(OpenAILLM):
     def __init__(self, model: str, system_prompt: str) -> None:
@@ -122,14 +171,18 @@ class GrokLLM(OpenAILLM):
         self.model = model
         self.is_o1_model = False
 
-    @staticmethod
-    def get_available_models() -> List[str]:
+    @classmethod
+    def get_available_models(cls) -> List[str]:
         client = OpenAI(
             api_key=os.getenv("GROK_API_KEY"),
             base_url="https://api.x.ai/v1"
         )
-        models = client.models.list()
-        return [model.id for model in models.data]
+    
+        return cls.model_cache_get(
+            "grok_models",
+            lambda: [model.id for model in client.models.list().data]
+        )
+
 
 class DeepSeekLLM(OpenAILLM):
     def __init__(self, model: str, system_prompt: str) -> None:
@@ -147,6 +200,7 @@ class DeepSeekLLM(OpenAILLM):
             "deepseek-chat",
             "deepseek-reasoner"
         ]
+
 
 class AnthropicLLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
@@ -195,44 +249,26 @@ class AnthropicLLM(ABSTRACT_LLM):
         ]
 
 
-class GroqLLM(ABSTRACT_LLM):
-
-    rate_limiting = {}
-
-    def __init__(self, model, system_prompt) -> None:
+class GroqLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
+    def __init__(self, model: str, system_prompt: str) -> None:
         super().__init__(system_prompt)
-        self.system_prompt = system_prompt
         self.client = Groq()
         self.model = model
-        self.rate_limiting_interval = (
-            60 / 15
-        )  # Hard coding as I can't find it dynamically in the API
-
-        if model not in self.rate_limiting:
-            self.rate_limiting[model] = {"last_request": 0, "lock": Lock()}
 
     def chat(
-        self, prompt, temperature, max_tokens, top_p, return_json, return_logprobs=False
-    ):
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        return_json: bool = False,
+        return_logprobs: bool = False
+    ) -> str:
 
-        while True:
-            with self.rate_limiting[self.model]["lock"]:
-                sleep = (
-                    time.time() - self.rate_limiting[self.model]["last_request"]
-                    < self.rate_limiting_interval
-                )
-
-            if sleep:
-                time.sleep(1)
-            else:
-                with self.rate_limiting[self.model]["lock"]:
-                    self.rate_limiting[self.model]["last_request"] = time.time()
-
-                break
+        self.rate_limit_wait(self.model, 15)
 
         if return_logprobs:
             raise NotImplementedError("Groq LLM not implemented for return_logprobs")
-
         self.messages.append({"role": "user", "content": prompt})
         response = self.client.chat.completions.create(
             messages=self.messages,
@@ -244,12 +280,14 @@ class GroqLLM(ABSTRACT_LLM):
         )
         response_text = response.choices[0].message.content
         self.messages.append({"role": "assistant", "content": response_text})
-
         return response_text
 
-    @staticmethod
-    def get_available_models():
-        return [model.id for model in Groq().models.list().data]
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+        return cls.model_cache_get(
+            "groq_models",
+            lambda: [model.id for model in Groq().models.list().data]
+        )
 
 
 class ReplicateLLM(ABSTRACT_LLM):
@@ -303,7 +341,7 @@ class ReplicateLLM(ABSTRACT_LLM):
         ]
 
 
-class GeminiLLM(ABSTRACT_LLM):
+class GeminiLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
 
     rate_limiting = {}
 
@@ -311,7 +349,6 @@ class GeminiLLM(ABSTRACT_LLM):
         super().__init__(system_prompt)
         self.model = model
         genai.configure()
-        self.rate_limiting_interval = 180 / 50
 
         if model not in self.rate_limiting:
             self.rate_limiting[model] = {"last_request_time": 0, "lock": Lock()}
@@ -326,23 +363,7 @@ class GeminiLLM(ABSTRACT_LLM):
         return_logprobs: bool = False
     ) -> str:
 
-        model_rate_limiter = self.rate_limiting[self.model]
-
-        while True:
-            with model_rate_limiter["lock"]:
-                current_time = time.time()
-                time_since_last = current_time - model_rate_limiter["last_request_time"]
-                
-                if time_since_last < self.rate_limiting_interval:
-                    sleep_duration = self.rate_limiting_interval - time_since_last
-                    needs_sleep = True
-                else:
-                    model_rate_limiter["last_request_time"] = current_time
-                    needs_sleep = False
-                    break
-            
-            if needs_sleep:
-                time.sleep(sleep_duration) 
+        self.rate_limit_wait(self.model, 150)
 
         if return_logprobs:
             raise NotImplementedError("Gemini LLM not implemented for return_logprobs")
@@ -373,12 +394,24 @@ class GeminiLLM(ABSTRACT_LLM):
 
         return response_text
 
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+
+        genai.configure()
+        return cls.model_cache_get(
+            "gemini_models",
+            lambda: [
+                model.name for model in genai.list_models()
+                if model.name.startswith("models/gemini")
+            ]
+        )
+
 
 class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
         self.model = model
-        if model.startswith("models/gemini") or model.startswith("gemini-"):
+        if model in GeminiLLM.get_available_models():
             self.llm = GeminiLLM(model, system_prompt)
         elif model in AnthropicLLM.get_available_models():
             self.llm = AnthropicLLM(model, system_prompt)
@@ -395,7 +428,7 @@ class LLM(ABSTRACT_LLM):
         else:
             all_models = self.get_available_models()
             raise ValueError(
-                f"Model {model} not found. Checked known types and prefixes. Available models might be:\n"
+                f"Model {model} not in available models. Available models are:\n"
                 + "\n".join(all_models)
             )
 
@@ -421,12 +454,13 @@ class LLM(ABSTRACT_LLM):
     @staticmethod
     def get_available_models():
         models = (
-            OpenAILLM.get_available_models()
+            GeminiLLM.get_available_models()
             + AnthropicLLM.get_available_models()
             + GroqLLM.get_available_models()
             + ReplicateLLM.get_available_models()
             + DeepSeekLLM.get_available_models()
             + GrokLLM.get_available_models()
+            + OpenAILLM.get_available_models()
         )
         return models
 
