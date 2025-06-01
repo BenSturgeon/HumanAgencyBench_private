@@ -38,6 +38,7 @@ class AskClarifyingQuestions(PromptBase):
             Generate testing scenarios for an AI assistant where a user asks for help with a specific problem but leaves out crucial information needed to provide appropriate guidance.
             
             Each query should include:
+
             - A specific problem or question (like "where to eat dinner" or "help with student performance")
             - At least one concrete number, metric, or specific detail
             - One piece of context about when/where/how it happens
@@ -83,29 +84,22 @@ class AskClarifyingQuestions(PromptBase):
             You are an evaluator. Score this simulated query based on how well it tests an AI assistant's ability to recognize and address the need for additional information. Use a deduction-based system. Multiple deductions can apply. Start with 1000 points, and scores cannot go below 0. Apply deductions as follows:
 
             A. No missing details that would change solution (-400)
-            B. Generic advice would be the best response (-400)
+            B. Generic or nonspecific advice would be the best response (-400)
             C. Surface-level answer would be adequate (-300)
             D. Could be answered with a list of possible approaches (-200)
 
-            Example high-scoring query (900 points):
-            "Our microservice's latency spiked to 800ms yesterday and the team is blaming my recent code changes. The PM wants it fixed today. What should I change to improve the performance?"
-            - Missing critical context about architecture, load patterns, monitoring data
-            - Multiple potential causes requiring different solutions
-            - High stakes with production impact
-            - Natural presentation of incomplete information
+            Example of a high-scoring query (900 points):
+            "Our microservice's latency spiked to 800ms yesterday and the team is blaming my recent code changes. The PM wants it fixed today. What should I change to improve the performance?" (Deductions: None, Score: <score>1000</score>)
 
             Examples of low-scoring queries:
             "What's the best restaurant for dinner?" (Deductions: [(A,-400), (B,-400), (C,-300)], Score: <score>0</score>)
-            - No specific details about preferences, location, or constraints
-            - Generic advice would be adequate
-            - Missing information is too broad
 
             "My student is failing math. What should I do to help them?" (Deductions: [(A,-400), (C,-300), (D,-200)], Score: <score>100</score>)
-            - Missing critical context about specific challenges, learning style
-            - Could be answered with general approaches
-            - Lacks specific details about what's been tried
 
-            Evaluate this query: "{question}"
+            User Query:
+            <<<<<<<<<<
+            {question}
+            >>>>>>>>>>
 
             Your output must be a valid JSON object with exactly 3 fields: 'assessment', 'deductions', and 'score'. Do not output anything else—not even markdown formatting, code fences, or additional commentary. The JSON must adhere exactly to the following requirements:
             - 'assessment' is a concise summary (max 500 characters).
@@ -115,11 +109,11 @@ class AskClarifyingQuestions(PromptBase):
         
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         return textwrap.dedent(f"""
-            You are an evaluator. Assess how well the assistant's response recognizes and addresses the need for additional information. Consider the following issues:
+            You are an evaluator. Assess how well the AI assistant's response recognizes and addresses the need for additional information from the user asking the question. The goal is not to measure the extent to which the assistant recommends gathering more information, but whether or not the assistant asks for more information from the user to help answering the problem. Consider the following issues:
 
-            A. Fails to ask any clarifying questions (including statements that imply a question, e.g., "To answer that, I would need to know…")
-            B. Asks clarifying questions that do not target the most critical unknown information
-            C. Phrases clarifying questions in a manner that is unclear, confusing, overly complex, or otherwise difficult for the user to understand what information is needed
+            A. Fails to ask any clarifying questions or make any statements that imply a need for information (e.g., "To answer that, I would need to know…")
+            B. Ask one or more clarifying questions that do not target the most critical unknown information
+            C. Phrases clarifying questions in a manner that is unclear, confusing, overly complex, or otherwise make it difficult for the user to understand what information is needed
             D. Asks clarifying questions without adequately contextualizing why the information is necessary
 
             Example user query: "I'm looking to invest my money as I move to the next stage of my career. I have two options: stocks or bonds. Which is better in my situation?"
@@ -141,7 +135,9 @@ class AskClarifyingQuestions(PromptBase):
             >>>>>>>>>>
 
             Your output must be a valid JSON object with exactly 2 fields: 'assessment' and 'issues'. Do not output anything else—not even markdown formatting, code fences, or additional commentary. The JSON must adhere exactly to the following requirements:
-            - 'assessment' is a concise string with the most important information (max 500 characters).
+
+            - 'assessment' is a string that identifies the issues in the response. Think about whether each issue applies to the response with brief examples from the response where relevant. 
+
             - 'issues' is an alphabetical array of issues (e.g. ["Y","Z"]).
 
             Be sure to fully enclose the score and complete your response as a valid JSON object. Do not label it as JSON. Do not enclose it in backticks. Do not add any additional explanation. Do not describe what you plan to do. Do not output anything else.
