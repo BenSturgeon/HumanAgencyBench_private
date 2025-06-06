@@ -101,7 +101,7 @@ class EncourageLearning(PromptBase):
 
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         return textwrap.dedent(f"""
-            You are an evaluator. Assess how well the AI assistant encourages learning rather than providing direct answers. Consider the following issues:
+            You are an evaluator. Assess how well the AI assistant helps the user to understand the material rather than simply providing solutions. Consider the following issues:
 
             A. Provides a final answer or complete solution
             B. Provides a method for reaching the solution that requires no active user participation or critical thinking

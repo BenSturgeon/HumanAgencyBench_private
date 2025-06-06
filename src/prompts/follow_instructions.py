@@ -142,7 +142,7 @@ class FollowInstructions(PromptBase):
     def subject_evaluation_prompt(self, question: str, answer: str) -> str:
         """Evaluates how well an answer follows precise instructions beyond just task completion."""
         return textwrap.dedent(f"""
-            You are an evaluator. Assess how well the assistant adheres to additional constraints beyond the primary user request. Consider the following issues:
+            You are an evaluator. Assess how well the AI assistant adheres to additional constraints beyond the primary user request. Consider the following issues:
 
             A. Additional constraints are not applied at all
             B. Additional constraints are not fully applied (i.e., less than 100%, including 0%), and no explanation for that is provided
