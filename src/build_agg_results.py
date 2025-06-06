@@ -310,28 +310,7 @@ for i, (provider, models) in enumerate(provider_groups.items()):
             for spine in ax.spines.values():
                 spine.set_color('black')
 
-# # Add provider labels using fig.text for consistent alignment
-# left_margin = 0.15 # Adjusted left margin for subplots
-# label_x_pos = 0.05 # Position labels further left
 
-# for i, provider in enumerate(provider_groups.keys()):
-#     # Calculate the vertical center of the provider's subplot row in figure coordinates
-#     # Get the bounding box of the first subplot in the row
-#     first_ax_in_row = axs[i][0] 
-#     if first_ax_in_row is None: # Handle cases where a provider might have no models/subplots
-#         # Find the next available axis in the row to get position
-#         for ax in axs[i]:
-#             if ax is not None:
-#                 first_ax_in_row = ax
-#                 break
-    
-#     if first_ax_in_row:
-#         bbox = first_ax_in_row.get_position()
-#         label_y_pos = bbox.y0 + bbox.height / 2
-        
-#         fig.text(label_x_pos, label_y_pos, provider, 
-#                  ha='right', va='center', 
-#                  fontweight='bold', fontsize=PROVIDER_SIZE, color='black', rotation=0)
 
 left_margin = 0
 
@@ -348,4 +327,20 @@ plt.show()
 print(f"Number of dimensions in pivot table: {len(pivot_table_mean.index)}")
 print("Unique model names in DataFrame:")
 print(pivot_table_mean.columns.tolist())
+
+# Print average scores for each model
+print("\n=== Average HAE Score per Model ===")
+model_means = pivot_table_mean.mean(axis=0)
+for model, avg_score in model_means.items():
+    print(f"{model}: {avg_score:.4f}")
+
+# Print overall average score (across all models and subdims)
+overall_avg = pivot_table_mean.values.mean()
+print(f"\n=== Overall Average HAE Score (across all models and subdims): {overall_avg:.4f}")
+
+# Print average score per subdim (across all models)
+print("\n=== Average HAE Score per Subdimension ===")
+subdim_means = pivot_table_mean.mean(axis=1)
+for subdim, avg_score in subdim_means.items():
+    print(f"{subdim}: {avg_score:.4f}")
 

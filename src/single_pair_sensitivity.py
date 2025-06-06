@@ -12,6 +12,7 @@ from datetime import datetime
 from collections import Counter
 import concurrent.futures
 import numpy as np # For calculating standard deviation
+import html
 
 # --- Path Setup --- 
 # Get the directory containing this script (src)
@@ -67,7 +68,7 @@ except ImportError as e:
 
 # Attempt to import setup_keys from src.utils (should work now)
 try:
-    from src.utils import setup_keys
+    from utils import setup_keys
 except ImportError:
     print("Warning: setup_keys from src.utils could not be imported. Assuming API keys are set via environment variables.")
     setup_keys = lambda x: None # Define dummy function if import fails
@@ -438,87 +439,137 @@ def generate_single_pair_report(
 
     # --- Calculate Score Statistics --- 
     score_stats = {}
+    # Ensure 'score' column is numeric, coercing errors to NaN
+    numeric_scores = pd.to_numeric(results_df['score'], errors='coerce')
+    valid_scores = numeric_scores.dropna()
+
     if not valid_scores.empty:
-        score_stats = {
-            'Mean Score': round(valid_scores.mean(), 2),
-            'Median Score': valid_scores.median(),
-            'Standard Deviation': round(valid_scores.std(), 2),
-            'Min Score': valid_scores.min(),
-            'Max Score': valid_scores.max()
-        }
-    score_stats_df = pd.DataFrame([score_stats])
-    score_stats_html = score_stats_df.to_html(index=False, justify='left') if score_stats else "<p>No valid scores to calculate statistics.</p>"
+        score_stats['Mean Score'] = f"{valid_scores.mean():.2f}"
+        score_stats['Median Score'] = f"{valid_scores.median():.2f}"
+        score_stats['Standard Deviation'] = f"{valid_scores.std():.2f}"
+        # Calculate Coefficient of Variation (CV)
+        mean_score = valid_scores.mean()
+        std_dev = valid_scores.std()
+        if mean_score != 0:  # Avoid division by zero
+            cv = (std_dev / abs(mean_score)) * 100  # Use absolute mean for CV calculation
+            score_stats['Coefficient of Variation (%)'] = f"{cv:.2f}%"
+        else:
+            score_stats['Coefficient of Variation (%)'] = 'N/A (Mean is 0)'
+    else:
+        score_stats['Mean Score'] = 'N/A'
+        score_stats['Median Score'] = 'N/A'
+        score_stats['Standard Deviation'] = 'N/A'
+        score_stats['Coefficient of Variation (%)'] = 'N/A'
 
-    # --- Generate HTML --- 
-    html = f"""
-    <html>
-    <head>
-        <title>Single Pair Sensitivity Report - {model_name}</title>
-        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            .section {{ margin-bottom: 30px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }}
-            h1, h2 {{ color: #333; }}
-            table {{ border-collapse: collapse; width: 80%; margin-top: 10px; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #f2f2f2; }}
-            pre {{ background-color: #f5f5f5; padding: 10px; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }}
-        </style>
-    </head>
-    <body>
-        <h1>Single Pair Sensitivity Report</h1>
-        <p><b>Model:</b> {model_name}</p>
-        <p><b>Rubric:</b> {type(prompt_object).__name__}</p>
-        <p><b>Total Repetitions:</b> {len(results_df)}</p>
-        <p>Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    score_stats_html = "<ul>" + "".join([f"<li><strong>{k}:</strong> {v}</li>" for k, v in score_stats.items()]) + "</ul>"
 
-        <div class="section">
-            <h2>User Prompt</h2>
-            <pre>{prompt_text}</pre>
-        </div>
-
-        <div class="section">
-            <h2>Assistant Response</h2>
-            <pre>{response_text}</pre>
-        </div>
+    # --- Prepare Individual Sample Details --- #
+    sample_details_html_list = []
+    for index, row in results_df.iterrows():
+        sample_num = index + 1
+        score = row.get('score', 'N/A')
+        # Safely get other data, escaping HTML characters
+        shuffled_criteria = html.escape(str(row.get('shuffled_issues_prompt_order', 'N/A')))
+        raw_output = html.escape(str(row.get('raw_response', 'N/A')))
+        letters = html.escape(str(row.get('reported_issues_letters', 'N/A')))
+        translated_issues_str = str(row.get('reported_original_issues', 'N/A'))
         
+        # Format translated issues into a list
+        issues_list_html = "<ul>"
+        if translated_issues_str not in ["Invalid JSON", "LLM Call/Processing Error", "Error: 'issues' field missing", "Parsing failed", "Translation Error", "N/A"]:
+            issues = [html.escape(issue.strip()) for issue in translated_issues_str.split(' || ') if issue.strip()]
+            for issue in issues:
+                issues_list_html += f"<li>{issue}</li>"
+        else:
+            issues_list_html += f"<li>{html.escape(translated_issues_str)}</li>" # Show the error/NA status
+        issues_list_html += "</ul>"
+
+        # Handle score display for non-numeric cases
+        try:
+            score_display = f"{float(score):.1f}"
+        except (ValueError, TypeError):
+            score_display = html.escape(str(score)) # Show error string like 'Invalid JSON' or 'N/A'
+            
+        summary_text = f"Sample #{sample_num} (Score: {score_display})"
+
+        details_content = f"""
+            <div>
+                <h4>Shuffled Criteria Order:</h4>
+                <pre style="white-space: pre-wrap; word-wrap: break-word;">{shuffled_criteria}</pre>
+                <h4>Evaluator Raw Output:</h4>
+                <pre style="white-space: pre-wrap; word-wrap: break-word;">{raw_output}</pre>
+                <h4>Parsed Score:</h4>
+                <p>{score_display}</p>
+                <h4>Reported Issues (Letters):</h4>
+                <p>{letters}</p>
+                <h4>Translated Issues (Text):</h4>
+                {issues_list_html}
+            </div>
+        """
+        sample_details_html_list.append(f"<details><summary>{summary_text}</summary>{details_content}</details>")
+
+    all_samples_html = "\n".join(sample_details_html_list)
+
+    # --- HTML Content Template --- 
+    html_content = f'''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Single Pair Sensitivity Report - {html.escape(model_name)}</title>
+    <style>
+        body {{ font-family: sans-serif; margin: 20px; }}
+        .container {{ max-width: 1000px; margin: auto; }}
+        .section {{ background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }}
+        h1, h2 {{ color: #333; }}
+        h2 {{ border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 30px; }}
+        pre {{ background-color: #eee; padding: 10px; border-radius: 3px; white-space: pre-wrap; word-wrap: break-word; }}
+        table {{ border-collapse: collapse; width: 100%; margin-top: 10px; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #f2f2f2; }}
+        details {{ border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }}
+        summary {{ font-weight: bold; padding: 10px; background-color: #f0f0f0; cursor: pointer; }}
+        details div {{ padding: 10px; border-top: 1px solid #ccc; }}
+        ul {{ padding-left: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Single Pair Sensitivity Analysis Report</h1>
+        <p><strong>Evaluator Model:</strong> {html.escape(model_name)}</p>
+        <p><strong>Rubric:</strong> {prompt_object.__class__.__name__}</p>
+
         <div class="section">
-            <h2>Run Summary & Errors</h2>
-            {error_summary_html}
-        </div>
-        
-        <div class="section">
-            <h2>Score Analysis (Based on {valid_runs} valid runs)</h2>
-            {score_stats_html}
-            <h3>Score Distribution</h3>
-            {plot_dist_html}
-        </div>
-        
-        <div class="section">
-            <h2>Frequency of Reported Issue Combinations (Letters Reported)</h2>
-            <p>This shows how often the LLM reported specific combinations of letters (A, B, C...) based on the shuffled criteria presented in each run.</p>
-            {issues_letters_table_html}
+            <h2>Input Prompt</h2>
+            <pre>{html.escape(prompt_text)}</pre>
         </div>
 
         <div class="section">
-            <h2>Frequency of Underlying Issues Identified</h2>
-            <p>This shows how often each specific conceptual issue was identified, regardless of the letter assigned to it in a given run.</p>
+            <h2>Subject Model Response</h2>
+            <pre>{html.escape(response_text)}</pre>
+        </div>
+
+        <div class="section">
+            <h2>Issue Identification Consistency</h2>
             {individual_issues_table_html}
         </div>
 
-        <!-- Optional: Add raw results table if needed -->
-        <!-- 
         <div class="section">
-            <h2>Raw Results</h2>
-            {results_df.to_html(index=False, justify='left')}
+            <h2>Score Statistics</h2>
+            {score_stats_html}
         </div>
-        -->
-    </body>
-    </html>
-    """
+        
+        <div class="section">
+             <h2>Individual Sample Details ({len(results_df)} Samples)</h2>
+             {all_samples_html} 
+        </div>
 
-    with open(report_filepath, 'w') as f:
-        f.write(html)
+    </div>
+</body>
+</html>
+''' # End of triple-quoted f-string
+
+    with open(report_filepath, 'w', encoding='utf-8') as f:
+        f.write(html_content)
     print(f"HTML report saved to {report_filepath}")
 
 def main():
