@@ -50,6 +50,8 @@ MODEL_COSTS = {
     "o1-mini": {"input": 0.00300, "output": 0.01200},  # 200K context; optimized for STEM reasoning
     "o3-mini-2025-01-31": {"input": 0.00110, "output": 0.00440},  # 200K context; cost-efficient reasoning model
     "o4-mini": {"input": 0.00110, "output": 0.00440},  # 1M context; cost-efficient model
+    # OpenAI o3 models
+    "o3-2025-04-16": {"input": 0.00200, "output": 0.00800},  # New o3 model with tool-specific pricing
     
     # Anthropic models
     "claude-3-7-sonnet-20250219": {"input": 0.00300, "output": 0.01500},  # 200K context; Claude 3.7 (advanced reasoning)
@@ -266,7 +268,8 @@ class CostTracker:
         return cost
     
     def track_chat_completion(self, model: str, messages: List[Dict], response: str,
-                             metadata: Optional[Dict] = None, cached_input: bool = False) -> Dict[str, Any]:
+                             metadata: Optional[Dict] = None, cached_input: bool = False,
+                             usage: Optional[Any] = None) -> Dict[str, Any]:
         """
         Track the cost of a chat completion API call.
         Returns the cost calculated for this call.
@@ -277,9 +280,46 @@ class CostTracker:
         else:
             model_costs = MODEL_COSTS[model]
         
-        # Count tokens
-        input_tokens = self._count_message_tokens(messages, model)
-        output_tokens = self._count_tokens(response, model)
+        # --------------------------------------
+        # Prefer the exact token counts returned
+        # by the provider (e.g. OpenAI usage.*),
+        # because they already include hidden
+        # reasoning / control tokens that are
+        # not present in the visible text.
+        # --------------------------------------
+        reasoning_tokens = None  # default – may be updated below
+
+        if usage is not None:
+            # usage can be a pydantic object from openai>=1 or a plain dict
+            input_tokens = getattr(usage, "prompt_tokens", None)
+            if input_tokens is None and isinstance(usage, dict):
+                input_tokens = usage.get("prompt_tokens")
+
+            output_tokens = getattr(usage, "completion_tokens", None)
+            if output_tokens is None and isinstance(usage, dict):
+                output_tokens = usage.get("completion_tokens")
+
+            # Try to capture explicit reasoning-tokens field, if present
+            details = getattr(usage, "completion_tokens_details", None)
+            if details is None and isinstance(usage, dict):
+                details = usage.get("completion_tokens_details")
+
+            if details is not None:
+                reasoning_tokens = getattr(details, "reasoning_tokens", None)
+                if reasoning_tokens is None and isinstance(details, dict):
+                    reasoning_tokens = details.get("reasoning_tokens")
+
+            # Fallback to counting if any field missing (rare)
+            if input_tokens is None or output_tokens is None:
+                input_tokens = self._count_message_tokens(messages, model)
+                output_tokens = self._count_tokens(response, model)
+        else:
+            # Legacy path – count visible tokens only. This may
+            # under-count for providers that hide reasoning tokens
+            # but preserves compatibility for wrappers that don't
+            # yet pass the usage object.
+            input_tokens = self._count_message_tokens(messages, model)
+            output_tokens = self._count_tokens(response, model)
         
         # Calculate costs (per 1k tokens)
         input_cost_per_k = model_costs["input"]
@@ -304,12 +344,13 @@ class CostTracker:
             "output_tokens": output_tokens,
             "cost": total_cost,
             "cached_input": cached_input,
-             # Add detailed cost breakdown if needed by integration layer
             "cost_details": {
                 "input_cost": round(input_cost, 6),
                 "output_cost": round(output_cost, 6),
                 "input_cost_per_k": input_cost_per_k,
                 "output_cost_per_k": output_cost_per_k,
+                # Include reasoning-tokens count for transparency, when available
+                **({"reasoning_tokens": reasoning_tokens} if reasoning_tokens is not None else {}),
             },
             "metadata": metadata # Pass original metadata back
         }

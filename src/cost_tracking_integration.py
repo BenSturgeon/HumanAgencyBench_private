@@ -249,7 +249,12 @@ def track_chat_call(func):
             messages_for_tracking = pre_call_messages.copy()
             if not messages_for_tracking or messages_for_tracking[-1].get('role') != 'user':
                 messages_for_tracking.append({"role": "user", "content": prompt})
-            response_text = response.get('content', response) if isinstance(response, dict) else str(response)
+            usage_obj = None
+            if isinstance(response, dict):
+                usage_obj = response.get('usage')
+                response_text = response.get('content', str(response))
+            else:
+                response_text = str(response)
 
             cached = bool(kwargs.get('cached') or kwargs.get('use_cache'))
 
@@ -257,8 +262,9 @@ def track_chat_call(func):
                 model=model,
                 messages=messages_for_tracking,
                 response=response_text,
-                metadata=None, 
-                cached_input=cached
+                metadata=None,
+                cached_input=cached,
+                usage=usage_obj,
             )
             cost = call_details["cost"]
 
@@ -303,7 +309,7 @@ def track_chat_call(func):
         except Exception as e:
             log.error(f"Error during cost tracking post-call processing: {e}", exc_info=True)
 
-        return response
+        return response_text
     return wrapper
 
 
