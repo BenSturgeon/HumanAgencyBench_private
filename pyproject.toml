@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agency-evaluations"
+version = "0.1.0"
+description = "A pipeline for agency evaluations"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Benjamin Sturgeon", email = "bwm.sturgeon@gmail.com"},
+    {name = "Daniel Samuelson", email = "daniel.samuelson8@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers", 
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "openai",
+    "anthropic", 
+    "groq",
+    "huggingface_hub",
+    "pandarallel",
+    "pyyaml",
+    "scikit-learn",
+    "plotly",
+    "argh",
+    "flask",
+    "replicate",
+    "google-generativeai",
+    "umap-learn",
+    "tqdm",
+    "pandas",
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/bensturgeon/agency_evaluations"
+Repository = "https://github.com/bensturgeon/agency_evaluations"
+
+[project.scripts]
+agency_pipeline = "pipeline:pipeline"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
