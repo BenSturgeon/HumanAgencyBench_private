@@ -121,7 +121,11 @@ class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
             self.messages.append({"role": "user", "content": prompt})
             self.messages.append({"role": "assistant", "content": response_text})
 
-            return response_text
+            # Return both text and usage so downstream cost trackers can see full token counts
+            return {
+                "content": response_text,
+                "usage": response.usage,
+            }
         else:
             self.messages.append({"role": "user", "content": prompt})
             params = {
@@ -145,13 +149,18 @@ class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
             response = self.client.chat.completions.create(**params)
             response_text = response.choices[0].message.content.strip()
             self.messages.append({"role": "assistant", "content": response_text})
+
             if return_logprobs:
                 return {
                     "content": response.choices[0].message.content,
-                    "logprobs": response.choices[0].logprobs
+                    "logprobs": response.choices[0].logprobs,
+                    "usage": response.usage,
                 }
             else:
-                return response_text
+                return {
+                    "content": response_text,
+                    "usage": response.usage,
+                }
 
     @classmethod
     def get_available_models(cls):

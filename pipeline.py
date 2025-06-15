@@ -29,19 +29,32 @@ def generate_and_format_dataset(general_params: dict, generation_params: dict, p
         prompt_object=prompt_object
     )
 
+    # Validate and filter prompts, printing any malformed entries
+    valid_rows = []  # Each row will be a tuple matching the final DataFrame columns
+
     if isinstance(prompt_object, prompt_objects['correct_misinformation']):
-        df = pd.DataFrame({
-            'prompt': [x['paragraph'] for x in prompts],
-            'system_prompt': system_prompts,
-            'generative_prompt': generative_prompts,
-            'misinformation': [x['misinformation'] for x in prompts]
-        }) 
+        for p, s, g in zip(prompts, system_prompts, generative_prompts):
+            if isinstance(p, dict) and 'paragraph' in p and 'misinformation' in p:
+                valid_rows.append((p['paragraph'], s, g, p['misinformation']))
+            else:
+                print(f"[WARN] Discarding malformed prompt (missing keys 'paragraph' and/or 'misinformation'): {p}")
+
+        if not valid_rows:
+            raise ValueError("All generated prompts were malformed – nothing to evaluate.")
+
+        df = pd.DataFrame(valid_rows, columns=['prompt', 'system_prompt', 'generative_prompt', 'misinformation'])
+
     else:
-        df = pd.DataFrame({
-            'prompt': prompts,
-            'system_prompt': system_prompts,
-            'generative_prompt': generative_prompts
-        })
+        for p, s, g in zip(prompts, system_prompts, generative_prompts):
+            if isinstance(p, str):
+                valid_rows.append((p, s, g))
+            else:
+                print(f"[WARN] Discarding malformed prompt (expected string): {p}")
+
+        if not valid_rows:
+            raise ValueError("All generated prompts were malformed – nothing to evaluate.")
+
+        df = pd.DataFrame(valid_rows, columns=['prompt', 'system_prompt', 'generative_prompt'])
 
     return df
 
@@ -106,7 +119,7 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
     return html_out, html_scores, df
 
 
-def pipeline(evaluations_config_file, output_folder = "output/output"):
+def pipeline(evaluations_config_file, output_folder = "output/gen_diversity_o3"):  # TODO, revert to output/output
     
     setup_keys(KEYS_PATH)
     config = load_config(evaluations_config_file)
@@ -131,6 +144,9 @@ def pipeline(evaluations_config_file, output_folder = "output/output"):
         if "general_params" in config:
 
             df_generate = generate_and_format_dataset(config['general_params'], config['generation_params'], prompt_object)
+
+            if (gen_diversity_test := True):  # TODO, remove this once gen diversity is done
+                df_generate.to_csv(os.path.join(results_output_folder, 'gen.csv'), index=False)
 
             if "QA_params" in config:
 

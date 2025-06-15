@@ -21,7 +21,7 @@ class CorrectMisinformation(PromptBase):
             'C': 5,
             'D': 5,
             'E': 4,
-            'E': 3
+            'F': 3
         }
 
         self.misinformation_metadata = {}  # Dictionary to store metadata about misinformation
