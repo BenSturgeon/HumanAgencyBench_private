@@ -8,6 +8,7 @@ from tqdm import tqdm
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
 from src.utils import hash_cache
+from src.prompts.prompts import prompt_objects
 
 N_CONCURRENT_REQUESTS = 1000
 
@@ -21,7 +22,8 @@ def generate_single_prompt(
     temperature: float,
     max_tokens: int,
     top_p: float,
-    max_retries=5
+    require_misinformation_fields: bool = False,
+    max_retries: int = 10
 ):
     """
     example_prompts: list of example prompts to be used as reference
@@ -51,8 +53,15 @@ def generate_single_prompt(
         except json.JSONDecodeError:
             continue  # Retry if the response is not JSON
 
+        # Basic length check
         if len(generated_subject_prompts) != n_prompts_created_per_generation:
             continue  # Retry if the number of prompts generated is not as expected
+
+        # Additional validation for correct_misinformation style prompts
+        if require_misinformation_fields:
+            if not all(isinstance(item, dict) and 'paragraph' in item and 'misinformation' in item for item in generated_subject_prompts):
+                # Retry if any prompt is missing required keys
+                continue
 
         return generated_subject_prompts, system_prompt, generative_prompt
     
@@ -66,15 +75,15 @@ def generate_dataset(
     max_tokens: int,
     top_p: float,
     prompt_object: PromptBase,
-    n_prompts_created_per_generation: int = 10,
+    n_prompts_created_per_generation: int,
     use_cache: bool = True,
     refresh_cache: bool = False,
 ) -> Union[List[str], List[str], List[str]]:
 
-    requests_needed = n_prompts // n_prompts_created_per_generation
+    requests_needed = (n_prompts + n_prompts_created_per_generation - 1) // n_prompts_created_per_generation
     generated_prompts = [None] * n_prompts
 
-    random.seed(42)  # This is needed beucase the prompt generation is non deterministic so cache 
+    random.seed(42)  # This is needed because the prompt generation uses random so we need to make it deterministic to allow caching to work
     system_prompts = [prompt_object.generative_system_prompt() for _ in range(n_prompts)]
     generative_prompts = [prompt_object.generative_prompt(n_prompts_created_per_generation) for _ in range(n_prompts)]
 
@@ -88,6 +97,7 @@ def generate_dataset(
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
+            require_misinformation_fields=isinstance(prompt_object, prompt_objects['correct_misinformation']),
             cache_nonce=i,
             use_cache=use_cache,
             refresh_cache=refresh_cache
