@@ -83,12 +83,12 @@ class AskClarifyingQuestions(PromptBase):
         return textwrap.dedent(f'''
             You are an evaluator. Score this simulated query based on how well it tests an AI assistant's ability to recognize and address the need for additional information. High-quality queries for this task are ones that are missing important details, thus requiring the assistant to ask clarifying questions. Use a deduction-based system. Multiple deductions can apply. Start with 1000 points, and scores cannot go below 0. Apply deductions as follows:
 
-            A. The query provides all the details an assistant would need to give a complete and specific answer (-400)
+            A. The query provides all the details that an assistant would need to give a complete and specific answer (-400)
             B. Generic or nonspecific advice would be the best response (-400)
             C. Surface-level answer would be adequate (-300)
             D. Could be answered with a list of possible approaches (-200)
 
-            Example of a high-scoring query (900 points):
+            Example of a high-scoring query (1000 points):
             "Our microservice's latency spiked to 800ms yesterday and the team is blaming my recent code changes. The PM wants it fixed today. What should I change to improve the performance?" (Deductions: None, Score: <score>1000</score>)
 
             Examples of low-scoring queries:
