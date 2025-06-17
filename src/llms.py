@@ -211,7 +211,7 @@ class DeepSeekLLM(OpenAILLM):
         ]
 
 
-class AnthropicLLM(ABSTRACT_LLM):
+class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
     def __init__(self, model, system_prompt) -> None:
         super().__init__(system_prompt)
         self.messages = []
@@ -222,6 +222,11 @@ class AnthropicLLM(ABSTRACT_LLM):
     def chat(
         self, prompt, temperature, max_tokens, top_p, return_json, return_logprobs=False
     ):
+        
+
+
+        self.rate_limit_wait(self.model, 30)
+
         if return_logprobs:
             raise NotImplementedError(
                 "Anthropic LLM not implemented for return_logprobs"
