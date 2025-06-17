@@ -250,6 +250,183 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
         return response_text
 
+    def chat_batch(
+        self,
+        prompts: List[str],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        **kwargs,
+    ) -> List[str]:
+        """Send a batch of prompts using Anthropic's Message Batches API.
+
+        Parameters
+        ----------
+        prompts : List[str]
+            A list of user prompts to send.
+        temperature, max_tokens, top_p : optional
+            Usual generation parameters.
+
+        Returns
+        -------
+        List[str]
+            A list of responses corresponding 1-to-1 with `prompts`.
+        """
+
+        # Guard: empty prompts
+        if not prompts:
+            return []
+
+        # Respect existing rate limit logic (up to 30 req/min per model)
+        # We treat the batch as one request.
+        self.rate_limit_wait(self.model, 30)
+
+        # Lazy import of types – older SDK versions may not ship them, so we
+        # fall back to per-prompt chat() calls if batch types are missing.
+        try:
+            from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
+            from anthropic.types.messages.batch_create_params import Request as AnthropicRequest
+        except ImportError:
+            # Silently degrade to per-prompt chat() calls if batch types are missing
+            return [
+                self.chat(p, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
+                for p in prompts
+            ]
+
+        # Build request objects
+        req_temperature = temperature if temperature is not None else 1
+        req_top_p = top_p if top_p is not None else 1
+        req_max_tokens = max_tokens if max_tokens is not None else 1024
+
+        anthropic_reqs = []
+        for idx, prompt in enumerate(prompts):
+            # Compose messages: optional system prompt + user prompt
+            messages_payload = [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ]
+
+            params = MessageCreateParamsNonStreaming(
+                model=self.model,
+                messages=messages_payload,
+                max_tokens=req_max_tokens,
+                temperature=req_temperature,
+                top_p=req_top_p,
+                system=self.system_prompt,
+            )
+
+            anthropic_reqs.append(
+                AnthropicRequest(
+                    custom_id=str(idx),
+                    params=params,
+                )
+            )
+
+        # Fire off the batch
+        print(f"[DEBUG] Submitting Anthropic batch with {len(prompts)} prompts to model '{self.model}'")
+        batch = self.client.messages.batches.create(requests=anthropic_reqs)
+
+        # Poll until finished (Anthropic docs: may take up to 24h, but we'll
+        # poll every 2s; caller can add timeout externally).
+        batch_id = batch.id
+        start_time = time.time()
+        while batch.processing_status == "in_progress":
+            time.sleep(2)
+            batch = self.client.messages.batches.retrieve(batch_id)
+
+        print(
+            f"[DEBUG] Batch {batch_id} finished with status '{batch.processing_status}' in {time.time() - start_time:.1f}s"
+        )
+
+        # At this point processing ended (succeeded/errored etc.)
+        # Fetch results – use SDK helper if present, else stream JSONL.
+        results_objs = []
+        try:
+            # Newer SDKs expose `.results()` which yields MessageBatchIndividualResponse objects
+            results_iter = self.client.messages.batches.results(batch_id)
+            results_objs = list(results_iter)
+        except Exception:
+            # Fall back to downloading JSONL from results_url (dicts)
+            import json, requests as _requests
+
+            if not getattr(batch, "results_url", None):
+                raise RuntimeError("Batch processing ended but no results_url present.")
+
+            resp = _requests.get(batch.results_url)
+            resp.raise_for_status()
+            results_objs = [json.loads(l) for l in resp.text.splitlines() if l.strip()]
+
+        # Normalize each result into a dict
+        results_lines = []
+        for obj in results_objs:
+            if isinstance(obj, dict):
+                results_lines.append(obj)
+            else:
+                # Pydantic model – use model_dump if available, else vars()
+                if hasattr(obj, "model_dump"):
+                    results_lines.append(obj.model_dump())
+                else:
+                    results_lines.append(vars(obj))
+
+        # Helper to robustly extract assistant text from varying result schemas
+        def _extract_text(obj: dict):
+            # Case 1: modern schema => obj['message']['content'][0]['text']
+            if isinstance(obj.get("message"), dict):
+                content = obj["message"].get("content")
+                if isinstance(content, list) and content and "text" in content[0]:
+                    return content[0]["text"]
+
+            # Case 2: some SDKs nest under 'response'
+            if isinstance(obj.get("response"), dict):
+                content = obj["response"].get("content")
+                if isinstance(content, list) and content and "text" in content[0]:
+                    return content[0]["text"]
+
+            # Case 2b: new batch schema => obj['result']['message']['content'][0]['text']
+            if isinstance(obj.get("result"), dict):
+                res = obj["result"]
+                if res.get("type") == "succeeded" and isinstance(res.get("message"), dict):
+                    content = res["message"].get("content")
+                    if isinstance(content, list) and content and "text" in content[0]:
+                        return content[0]["text"]
+
+            # Case 3: flat 'content' list
+            if isinstance(obj.get("content"), list):
+                content = obj["content"]
+                if content and isinstance(content[0], dict) and "text" in content[0]:
+                    return content[0]["text"]
+
+            # Case 4: flat 'content' string (unlikely for chat)
+            if isinstance(obj.get("content"), str):
+                return obj["content"]
+
+            return None
+
+        # Map custom_id back to index → response text
+        responses_map = {}
+        for item in results_lines:
+            # The schema uses either `custom_id` or `request.custom_id` depending on SDK.
+            cid = item.get("custom_id") or item.get("request", {}).get("custom_id")
+            assistant_text = _extract_text(item)
+
+            if assistant_text is None:
+                print(f"[WARN] Unable to parse assistant text from batch result (keys={list(item.keys())}).")
+                assistant_text = "[ERROR PARSING BATCH RESULT]"
+
+            responses_map[int(cid)] = assistant_text
+
+        # Ensure ordering; if some results errored, fill placeholder
+        ordered_responses = [responses_map.get(i, "[ERROR DURING BATCH LLM CHAT]") for i in range(len(prompts))]
+
+        # Append to conversation history (flat) so follow-up calls have context
+        for p, r in zip(prompts, ordered_responses):
+            self.messages.append({"role": "user", "content": p})
+            self.messages.append({"role": "assistant", "content": r})
+
+        return ordered_responses
+
     @staticmethod
     def get_available_models():
         return [  # TODO hardcoding for now because I can't find where the models are listed in the API

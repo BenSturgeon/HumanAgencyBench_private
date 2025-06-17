@@ -39,6 +39,46 @@ def get_model_responses(
     prompts, 
     system_prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
 ):
+    """Retrieve model responses for a list of prompts.
+
+    If the target model is an Anthropic Claude model, we attempt to use the
+    newly-added Message Batches API for efficiency.  If that fails for any
+    reason, we transparently fall back to the existing per-prompt threaded
+    logic so the evaluation never breaks.
+    """
+
+    # Try fast path for Claude models (AnthropicLLM)
+    try:
+        if model.startswith("claude") and len(set(system_prompts)) == 1:
+            # All prompts share the same system prompt; safe to batch.
+            llm = LLM(model, system_prompts[0])
+            from src.llms import AnthropicLLM  # local import to avoid cycle
+
+            if isinstance(llm.llm, AnthropicLLM) and hasattr(llm.llm, "chat_batch"):
+                # Anthropic allows up to 100k requests per batch; we still chunk
+                # to avoid 256 MB limit – 1000 prompts * ~2k tokens/user ≈ 2 MB.
+                BATCH_SIZE = 1000
+                batched_responses = []
+                print(f"[DEBUG] Using batch API for subject model '{model}' with {len(prompts)} prompts (chunk size={BATCH_SIZE})")
+                for i in range(0, len(prompts), BATCH_SIZE):
+                    chunk_prompts = prompts[i : i + BATCH_SIZE]
+                    print(f"[DEBUG]  → Sending chunk {i//BATCH_SIZE + 1}/{(len(prompts)+BATCH_SIZE-1)//BATCH_SIZE} (size={len(chunk_prompts)})")
+                    chunk_responses = llm.llm.chat_batch(
+                        chunk_prompts,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                    )
+                    batched_responses.extend(chunk_responses)
+
+                # Double-check length alignment.
+                assert len(batched_responses) == len(prompts)
+
+                return batched_responses, system_prompts
+    except Exception as e:
+        print(f"[WARN] Batch path failed for model {model}: {e}. Falling back to per-prompt mode.")
+
+    # Fallback: original multi-threaded per-prompt logic.
     responses = [None] * len(prompts)
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
@@ -52,10 +92,15 @@ def get_model_responses(
                 top_p=top_p,
                 max_tokens=max_tokens,
                 use_cache=use_cache,
-                refresh_cache=refresh_cache
-            ): i for i, (prompt, system_prompt) in enumerate(zip(prompts, system_prompts))
+                refresh_cache=refresh_cache,
+            ): i
+            for i, (prompt, system_prompt) in enumerate(zip(prompts, system_prompts))
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Getting student model responses: {model}'):
+        for future in tqdm(
+            as_completed(future_to_index),
+            total=len(future_to_index),
+            desc=f"Getting student model responses: {model}",
+        ):
             index = future_to_index[future]
             responses[index], system_prompts[index] = future.result()
 
@@ -132,10 +177,84 @@ def get_scores(
     misinformation=None,
     evaluator_max_tokens= int
 ):
+    """Compute scores for a list of subject model responses.
+
+    Uses Anthropic Message-Batch API when the evaluator model is a Claude
+    variant, otherwise falls back to the existing threaded single-request
+    logic.
+    """
+
+    # Try batch for Claude evaluator
+    try:
+        if evaluator_model.startswith("claude"):
+            system_prompt = prompt_object.subject_evaluation_system_prompt()
+
+            # Build evaluation prompts list (same logic as in score_response)
+            eval_prompts_local = []
+            for i, (prompt, response) in enumerate(zip(prompts, subject_responses)):
+                if misinformation:
+                    eval_prompts_local.append(
+                        prompt_object.subject_evaluation_prompt(prompt, response, misinformation[i])
+                    )
+                else:
+                    eval_prompts_local.append(
+                        prompt_object.subject_evaluation_prompt(prompt, response)
+                    )
+
+            llm = LLM(evaluator_model, system_prompt)
+            from src.llms import AnthropicLLM
+
+            if isinstance(llm.llm, AnthropicLLM) and hasattr(llm.llm, "chat_batch"):
+                print(f"[DEBUG] Using batch API for evaluator model '{evaluator_model}' with {len(eval_prompts_local)} evaluation prompts")
+                evaluator_responses = llm.llm.chat_batch(
+                    eval_prompts_local,
+                    temperature=0,
+                    top_p=1,
+                    max_tokens=evaluator_max_tokens,
+                )
+                print(f"[DEBUG] Received evaluator batch responses ({len(evaluator_responses)})")
+
+                # Post-process: compute scores and deductions
+                scores = []
+                system_prompts = []
+                eval_prompts_out = []
+                for eval_prompt, evaluator_response in zip(eval_prompts_local, evaluator_responses):
+                    try:
+                        total_deduction = sum_deductions_from_json(
+                            evaluator_response, prompt_object.deductions
+                        )
+                    except Exception:
+                        # Mirror error handling of score_response
+                        error_placeholders = [
+                            "[RATE LIMIT ERROR DURING LLM CHAT]",
+                            "[ERROR DURING LLM CHAT]",
+                            "[GENERATION STOPPED DUE TO RECITATION]",
+                            "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]",
+                        ]
+                        if evaluator_response in error_placeholders:
+                            total_deduction = prompt_object.top_eval_score
+                        else:
+                            total_deduction = prompt_object.top_eval_score
+
+                    score_val = max(prompt_object.top_eval_score - total_deduction, 0)
+                    scores.append(score_val)
+                    system_prompts.append(system_prompt)
+                    eval_prompts_out.append(eval_prompt)
+
+                return (
+                    scores,
+                    system_prompts,
+                    eval_prompts_out,
+                    evaluator_responses,
+                )
+    except Exception as e:
+        print(f"[WARN] Batch evaluator path failed for model {evaluator_model}: {e}. Falling back to per-prompt mode.")
+
+    # Fallback: threaded per-prompt scoring
     scores = [None] * len(prompts)
     system_prompts = [None] * len(prompts)
-    eval_prompts = [None] * len(prompts) 
-    evaluator_responses = [None] * len(prompts) 
+    eval_prompts = [None] * len(prompts)
+    evaluator_responses = [None] * len(prompts)
 
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
@@ -148,12 +267,22 @@ def get_scores(
                 use_cache=use_cache,
                 refresh_cache=refresh_cache,
                 misinformation=misinformation[i] if misinformation else None,
-                evaluator_max_tokens=evaluator_max_tokens
-            ): i for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
+                evaluator_max_tokens=evaluator_max_tokens,
+            ): i
+            for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
         }
-        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc=f'Scoring responses: {subject_model}'):
+        for future in tqdm(
+            as_completed(future_to_index),
+            total=len(future_to_index),
+            desc=f"Scoring responses: {subject_model}",
+        ):
             index = future_to_index[future]
-            scores[index], system_prompts[index], eval_prompts[index] , evaluator_responses[index]= future.result()
+            (
+                scores[index],
+                system_prompts[index],
+                eval_prompts[index],
+                evaluator_responses[index],
+            ) = future.result()
 
     return scores, system_prompts, eval_prompts, evaluator_responses
 
