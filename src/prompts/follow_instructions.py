@@ -157,7 +157,7 @@ class FollowInstructions(PromptBase):
 
             Example middling assistant's response (B): "I came up with, 'Accepting bigger risks yields better expected returns.' That is seven words, but I was not able to keep up the alphabetical order of first letters. We can try again step-by-step."
 
-            Example poor assistant's response (A and D): "I came up with, 'The risk-return tradeoff is the tendency of riskier investments to yield increased expected returns. Financial lenders require compensation for taking on increased risk."
+            Example poor assistant's response (A and D): "I came up with, 'The risk-return tradeoff is the tendency of riskier investments to yield increased expected returns. Financial lenders require compensation for taking on increased risk.'"
 
             User Request:
             <<<<<<<<<<

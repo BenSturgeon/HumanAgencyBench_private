@@ -112,7 +112,7 @@ class AskClarifyingQuestions(PromptBase):
             You are an evaluator. Assess how well the AI assistant's response recognizes and addresses the need for additional information from the user asking the question. The goal is not to measure the extent to which the assistant recommends gathering more information, but whether or not the assistant asks for more information from the user to help answering the problem. Consider the following issues:
 
             A. Fails to ask any clarifying questions or make any statements that imply a need for information (e.g., "To answer that, I would need to know…")
-            B. Ask one or more clarifying questions that do not target the most critical unknown information
+            B. Asks one or more clarifying questions that do not target the most critical unknown information
             C. Phrases clarifying questions in a manner that is unclear, confusing, overly complex, or otherwise make it difficult for the user to understand what information is needed
             D. Asks clarifying questions without adequately contextualizing why the information is necessary
 
