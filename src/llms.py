@@ -366,9 +366,14 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
             else:
                 # Pydantic model – use model_dump if available, else vars()
                 if hasattr(obj, "model_dump"):
-                    results_lines.append(obj.model_dump())
+                    results_lines.append(obj.model_dump(exclude_none=True))
                 else:
                     results_lines.append(vars(obj))
+ 
+        for item in results_lines:
+            res = item.get("result")
+            if res is not None and not isinstance(res, dict) and hasattr(res, "model_dump"):
+                item["result"] = res.model_dump(exclude_none=True)
 
         # Helper to robustly extract assistant text from varying result schemas
         def _extract_text(obj: dict):
@@ -417,10 +422,8 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
             responses_map[int(cid)] = assistant_text
 
-        # Ensure ordering; if some results errored, fill placeholder
         ordered_responses = [responses_map.get(i, "[ERROR DURING BATCH LLM CHAT]") for i in range(len(prompts))]
 
-        # Append to conversation history (flat) so follow-up calls have context
         for p, r in zip(prompts, ordered_responses):
             self.messages.append({"role": "user", "content": p})
             self.messages.append({"role": "assistant", "content": r})
@@ -429,7 +432,7 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
     @staticmethod
     def get_available_models():
-        return [  # TODO hardcoding for now because I can't find where the models are listed in the API
+        return [ 
             "claude-3-7-sonnet-20250219",
             "claude-3-5-sonnet-20240620",
             "claude-3-opus-20240229",

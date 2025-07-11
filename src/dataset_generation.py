@@ -87,32 +87,90 @@ def generate_dataset(
     system_prompts = [prompt_object.generative_system_prompt() for _ in range(n_prompts)]
     generative_prompts = [prompt_object.generative_prompt(n_prompts_created_per_generation) for _ in range(n_prompts)]
 
-    with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
-        future_to_index = {executor.submit(
-            generate_single_prompt,
+    if model.startswith("claude"):
+        # Use batch API & caching helper
+        from src.batch_utils import batch_model_response
+
+        print(f"[DEBUG] Batch generating {requests_needed} prompt groups using Claude batch API")
+
+        batched_responses = batch_model_response(
+            prompts=generative_prompts[:requests_needed],
+            system_prompt=system_prompts[0],
             model=model,
-            generative_prompt=generative_prompts[i],
-            system_prompt=system_prompts[i],
-            n_prompts_created_per_generation=n_prompts_created_per_generation,
             temperature=temperature,
-            max_tokens=max_tokens,
             top_p=top_p,
-            require_misinformation_fields=isinstance(prompt_object, prompt_objects['correct_misinformation']),
-            cache_nonce=i,
-            use_cache=use_cache,
-            refresh_cache=refresh_cache
-            ): i for i in range(requests_needed)
-        }
-        for future in tqdm(as_completed(future_to_index), total=requests_needed, desc='Generating prompts'):
+            max_tokens=max_tokens,
+        )
 
-            generated_prompt, system_prompt, generative_prompt = future.result()
-            index = future_to_index[future]
-            start_idx = index * n_prompts_created_per_generation
-            end_idx = (index + 1) * n_prompts_created_per_generation
+        # Parse each JSON response using existing validation logic
+        import json
+        for idx, raw in enumerate(batched_responses):
+            resp = raw
+            if "```json" in resp:
+                resp = resp.replace("```json", "").replace("```", "").strip()
+            elif "```" in resp:
+                resp = resp.replace("```", "").strip()
 
-            index = future_to_index[future]
-            generated_prompts[start_idx: end_idx] = generated_prompt
-            system_prompts[start_idx: end_idx] = [system_prompt] * n_prompts_created_per_generation
-            generative_prompts[start_idx: end_idx] = [generative_prompt] * n_prompts_created_per_generation
+            try:
+                obj = json.loads(resp)
+                if isinstance(obj, dict):
+                    parsed_list = list(obj.values())
+                elif isinstance(obj, list):
+                    parsed_list = obj
+                else:
+                    raise ValueError
+            except Exception:
+                # Fallback: re-query this prompt via single call
+                print("[WARN] Batch generation item unparsable – retrying individually.")
+                parsed_list, _, _ = generate_single_prompt(
+                    model=model,
+                    generative_prompt=generative_prompts[idx],
+                    system_prompt=system_prompts[idx],
+                    n_prompts_created_per_generation=n_prompts_created_per_generation,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    top_p=top_p,
+                    require_misinformation_fields=isinstance(prompt_object, prompt_objects['correct_misinformation']),
+                    use_cache=False,
+                    refresh_cache=False,
+                )
+
+            if len(parsed_list) != n_prompts_created_per_generation:
+                raise Exception("Batch generation returned incorrect number of prompts")
+
+            start_idx = idx * n_prompts_created_per_generation
+            end_idx = start_idx + n_prompts_created_per_generation
+            generated_prompts[start_idx:end_idx] = parsed_list
+            system_prompts[start_idx:end_idx] = [system_prompts[idx]] * n_prompts_created_per_generation
+            generative_prompts[start_idx:end_idx] = [generative_prompts[idx]] * n_prompts_created_per_generation
+
+    else:
+        # Original threaded path
+        with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
+            future_to_index = {executor.submit(
+                generate_single_prompt,
+                model=model,
+                generative_prompt=generative_prompts[i],
+                system_prompt=system_prompts[i],
+                n_prompts_created_per_generation=n_prompts_created_per_generation,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                require_misinformation_fields=isinstance(prompt_object, prompt_objects['correct_misinformation']),
+                cache_nonce=i,
+                use_cache=use_cache,
+                refresh_cache=refresh_cache
+                ): i for i in range(requests_needed)
+            }
+            for future in tqdm(as_completed(future_to_index), total=requests_needed, desc='Generating prompts'):
+
+                generated_prompt, system_prompt, generative_prompt = future.result()
+                index = future_to_index[future]
+                start_idx = index * n_prompts_created_per_generation
+                end_idx = (index + 1) * n_prompts_created_per_generation
+
+                generated_prompts[start_idx: end_idx] = generated_prompt
+                system_prompts[start_idx: end_idx] = [system_prompt] * n_prompts_created_per_generation
+                generative_prompts[start_idx: end_idx] = [generative_prompt] * n_prompts_created_per_generation
 
     return generated_prompts, system_prompts, generative_prompts

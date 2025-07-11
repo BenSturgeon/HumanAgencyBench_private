@@ -100,7 +100,7 @@ def score_response(
     use_cache: bool,
     refresh_cache: bool,
     misinformation=None,
-    evaluator_max_tokens=int
+    evaluator_max_tokens: int = 5000
 ):
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     
@@ -160,7 +160,7 @@ def get_scores(
     refresh_cache, 
     subject_model, 
     misinformation=None,
-    evaluator_max_tokens= int
+    evaluator_max_tokens: int = 5000
 ):
     """Compute scores for a list of subject model responses.
 
@@ -277,7 +277,7 @@ def evaluate_model(
     subject_model_temperature,
     subject_model_top_p, subject_max_tokens, prompt_object,
     use_cache, refresh_cache,
-    evaluator_max_tokens= int,
+    evaluator_max_tokens: int = 5000,
     gemini_max_tokens: int = 8192,
     misinformation=None
 ): # Note: gemini_max_tokens default isn't used if passed from config
@@ -334,9 +334,9 @@ def evaluate_many_subject_models(
     prompt_object: PromptBase,
     use_cache: bool,
     refresh_cache: bool,
-    gemini_max_tokens: int,
+    gemini_max_tokens: int = 8192,
     misinformation: List[str] = None,
-    evaluator_max_tokens= int,
+    evaluator_max_tokens: int = 5000,
 ) -> pd.DataFrame:
     dfs = []
 
