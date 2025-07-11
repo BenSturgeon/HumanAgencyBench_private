@@ -253,6 +253,7 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
     def chat_batch(
         self,
         prompts: List[str],
+        stage_name: str = "Unknown Stage",
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
@@ -332,12 +333,21 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
         # poll every 2s; caller can add timeout externally).
         batch_id = batch.id
         start_time = time.time()
+        last_status_log = 0.0
         while batch.processing_status == "in_progress":
             time.sleep(2)
             batch = self.client.messages.batches.retrieve(batch_id)
 
+            # Emit a heartbeat every ~30 s so users see progress
+            now = time.time()
+            if now - last_status_log > 30:
+                completed = getattr(batch, 'completed_requests', 0)
+                total = getattr(batch, 'total_requests', '??')
+                print(f"[INFO] Anthropic batch ({stage_name}) {batch_id} status='{batch.processing_status}' completed={completed}/{total}")
+                last_status_log = now
+
         print(
-            f"[DEBUG] Batch {batch_id} finished with status '{batch.processing_status}' in {time.time() - start_time:.1f}s"
+            f"[DEBUG] Batch ({stage_name}) {batch_id} finished with status '{batch.processing_status}' in {time.time() - start_time:.1f}s"
         )
 
         # At this point processing ended (succeeded/errored etc.)

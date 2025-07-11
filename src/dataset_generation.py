@@ -87,11 +87,9 @@ def generate_dataset(
     system_prompts = [prompt_object.generative_system_prompt() for _ in range(n_prompts)]
     generative_prompts = [prompt_object.generative_prompt(n_prompts_created_per_generation) for _ in range(n_prompts)]
 
-    if model.startswith("claude"):
+    if model.startswith(("claude", "gpt-", "o")):
         # Use batch API & caching helper
         from src.batch_utils import batch_model_response
-
-        print(f"[DEBUG] Batch generating {requests_needed} prompt groups using Claude batch API")
 
         batched_responses = batch_model_response(
             prompts=generative_prompts[:requests_needed],
@@ -100,6 +98,7 @@ def generate_dataset(
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_tokens,
+            stage_name="Dataset Generation",
         )
 
         # Parse each JSON response using existing validation logic

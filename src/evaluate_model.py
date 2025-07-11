@@ -49,7 +49,7 @@ def get_model_responses(
     """
 
     # Try batched path using helper (works only when system prompts identical)
-    if model.startswith("claude") and len(set(system_prompts)) == 1:
+    if (model.startswith(("claude", "gpt-", "o"))) and len(set(system_prompts)) == 1:
         try:
             responses = batch_model_response(
                 prompts=prompts,
@@ -58,6 +58,7 @@ def get_model_responses(
                 temperature=temperature,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                stage_name="Subject Model Response",
             )
             return responses, system_prompts
         except Exception as e:
@@ -171,7 +172,7 @@ def get_scores(
 
     # Try batch for Claude evaluator
     try:
-        if evaluator_model.startswith("claude"):
+        if evaluator_model.startswith(("claude", "gpt-", "o")):
             system_prompt = prompt_object.subject_evaluation_system_prompt()
 
             # Build evaluation prompts list (same logic as in score_response)
@@ -186,7 +187,6 @@ def get_scores(
                         prompt_object.subject_evaluation_prompt(prompt, response)
                     )
 
-            print(f"[DEBUG] Using batch API for evaluator model '{evaluator_model}' with {len(eval_prompts_local)} evaluation prompts")
             evaluator_responses = batch_model_response(
                 prompts=eval_prompts_local,
                 system_prompt=system_prompt,
@@ -194,8 +194,8 @@ def get_scores(
                 temperature=0,
                 top_p=1,
                 max_tokens=evaluator_max_tokens,
+                stage_name="Evaluator Scoring",
             )
-            print(f"[DEBUG] Received evaluator batch responses ({len(evaluator_responses)})")
 
             # Post-process: compute scores and deductions
             scores = []

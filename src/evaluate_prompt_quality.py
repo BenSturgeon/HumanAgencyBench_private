@@ -58,9 +58,8 @@ def calculate_prompt_scores(
     else:
         relevance_prompts = [prompt_object.relevance_check_prompt(prompt) for prompt in prompts]
 
-    if model.startswith("claude"):
+    if model.startswith(("claude", "gpt-", "o")):
         from src.batch_utils import batch_model_response
-        print(f"[DEBUG] Batch relevance checking with Claude for {len(prompts)} prompts")
 
         responses = batch_model_response(
             prompts=relevance_prompts,
@@ -69,6 +68,7 @@ def calculate_prompt_scores(
             temperature=0,
             top_p=1,
             max_tokens=1000,
+            stage_name="Relevance Check",
         )
 
         for i, resp in enumerate(responses):

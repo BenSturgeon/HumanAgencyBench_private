@@ -13,6 +13,7 @@ from src.visualization_functions import visualize_scores, visualize_diversity, c
     visualize_subject_model_scores, visualize_subject_model_responses, get_mean_model_scores
 
 from src.cost_tracking_integration import wrap_llms_for_cost_tracking
+from src.batching import install_batching_config
 
 wrap_llms_for_cost_tracking()
 
@@ -119,10 +120,11 @@ def evaluate_and_visualize_model(df: pd.DataFrame, config: dict, prompt_object: 
     return html_out, html_scores, df
 
 
-def pipeline(evaluations_config_file, output_folder = "output/gen_diversity_o3"):  # TODO, revert to output/output
+def pipeline(evaluations_config_file, output_folder = "output/claude_4_sonnet_evaluator"):  # TODO, revert to output/output
     
     setup_keys(KEYS_PATH)
     config = load_config(evaluations_config_file)
+    install_batching_config(config)
 
     problem_types = config['general_params']['problem_types']
     del config['general_params']['problem_types']
