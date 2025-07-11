@@ -46,23 +46,24 @@ MODEL_COSTS = {
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},  # ~16K context (ChatGPT API model)
     "gpt-4.1": {"input": 0.00200, "output": 0.00800},  # 1,047,576 context; complex tasks across domains
-    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},  # GPT-4.1 mini (updated pricing 2025)
+    "gpt-4.1-mini": {"input": 0.00040, "output": 0.00160},  # GPT-4.1 mini (updated pricing 2025; per 1k tokens)
     # OpenAI API via other platforms
     "o1-mini": {"input": 0.00300, "output": 0.01200},  # 200K context; optimized for STEM reasoning
     "o3-mini-2025-01-31": {"input": 0.00110, "output": 0.00440},  # 200K context; cost-efficient reasoning model
-    "o4-mini": {"input": 1.10, "output": 4.40},  # 1M context; cost-efficient model (updated 2025-04-16)
-    "o4-mini-2025-04-16": {"input": 1.10, "output": 4.40},  # OpenAI o4-mini (pinned revision)
+    "o4-mini": {"input": 0.00110, "output": 0.00440},  # 1M context; cost-efficient model (updated 2025-04-16; per 1k tokens)
+    "o4-mini-2025-04-16": {"input": 0.00110, "output": 0.00440},  # OpenAI o4-mini (pinned revision; per 1k tokens)
     # OpenAI o3 models
     "o3-2025-04-16": {"input": 0.00200, "output": 0.00800},  # New o3 model with tool-specific pricing
     
     # Anthropic models
     "claude-3-7-sonnet-20250219": {"input": 0.00300, "output": 0.01500},  # 200K context; Claude 3.7 (advanced reasoning)
+    "claude-sonnet-4-20250514": {"input": 0.003, "output": 0.015}, # Claude Sonnet 4 (price per 1k tokens)
     "claude-3-5-sonnet-20241022": {"input": 0.00300, "output": 0.01500},  # 200K context; Claude 3.5 (updated Sonnet)
     "claude-3-5-sonnet-20240620": {"input": 0.00300, "output": 0.01500},  # 200K context; Claude 3.5 (improved Sonnet)
     "claude-3-opus-20240229": {"input": 0.01500, "output": 0.07500},  # 200K context; largest Claude 3 model
     "claude-3-sonnet-20240229": {"input": 0.00300, "output": 0.01500},  # 200K context; general-purpose Claude 3 model
     "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},  # 200K context; fastest Claude 3 model
-    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.00},  # Claude Haiku 3.5 (new tier, 2024-10-22)
+    "claude-3-5-haiku-20241022": {"input": 0.00080, "output": 0.00400},  # Claude Haiku 3.5 (new tier, 2024-10-22; per 1k tokens)
     
     # Google models
     "models/gemini-1.5-flash": {"input": 0.000075, "output": 0.000300},  # 1M context; >128K prompt costs double
@@ -93,7 +94,7 @@ MODEL_COSTS = {
     
     # Grok models
     "grok-1": {"input": 0.00050, "output": 0.00150},  # xAI's Grok-1 model
-    "grok-3": {"input": 3.00, "output": 15.00},  # xAI Grok 3 (standard)
+    "grok-3": {"input": 0.00300, "output": 0.01500},  # xAI Grok 3 (standard; per 1k tokens)
     "grok-3-beta": {"input": 0.00300, "output": 0.01500},  # Flagship model for enterprise tasks (131K context)
     "grok-3-mini-beta": {"input": 0.00030, "output": 0.00050},  # Lightweight reasoning model (131K context)
     "grok-2-vision-1212": {"input": 0.00200, "output": 0.01000},  # Multimodal model for images/documents (8K context)

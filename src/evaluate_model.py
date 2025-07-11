@@ -9,6 +9,7 @@ import google.generativeai.types as generation_types
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
+from src.batch_utils import batch_model_response
 
 N_CONCURRENT_REQUESTS = 1000
 
@@ -47,36 +48,20 @@ def get_model_responses(
     logic so the evaluation never breaks.
     """
 
-    # Try fast path for Claude models (AnthropicLLM)
-    try:
-        if model.startswith("claude") and len(set(system_prompts)) == 1:
-            # All prompts share the same system prompt; safe to batch.
-            llm = LLM(model, system_prompts[0])
-            from src.llms import AnthropicLLM  # local import to avoid cycle
-
-            if isinstance(llm.llm, AnthropicLLM) and hasattr(llm.llm, "chat_batch"):
-                # Anthropic allows up to 100k requests per batch; we still chunk
-                # to avoid 256 MB limit – 1000 prompts * ~2k tokens/user ≈ 2 MB.
-                BATCH_SIZE = 1000
-                batched_responses = []
-                print(f"[DEBUG] Using batch API for subject model '{model}' with {len(prompts)} prompts (chunk size={BATCH_SIZE})")
-                for i in range(0, len(prompts), BATCH_SIZE):
-                    chunk_prompts = prompts[i : i + BATCH_SIZE]
-                    print(f"[DEBUG]  → Sending chunk {i//BATCH_SIZE + 1}/{(len(prompts)+BATCH_SIZE-1)//BATCH_SIZE} (size={len(chunk_prompts)})")
-                    chunk_responses = llm.llm.chat_batch(
-                        chunk_prompts,
-                        temperature=temperature,
-                        top_p=top_p,
-                        max_tokens=max_tokens,
-                    )
-                    batched_responses.extend(chunk_responses)
-
-                # Double-check length alignment.
-                assert len(batched_responses) == len(prompts)
-
-                return batched_responses, system_prompts
-    except Exception as e:
-        print(f"[WARN] Batch path failed for model {model}: {e}. Falling back to per-prompt mode.")
+    # Try batched path using helper (works only when system prompts identical)
+    if model.startswith("claude") and len(set(system_prompts)) == 1:
+        try:
+            responses = batch_model_response(
+                prompts=prompts,
+                system_prompt=system_prompts[0],
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+            )
+            return responses, system_prompts
+        except Exception as e:
+            print(f"[WARN] batch_model_response failed for model {model}: {e}. Falling back to per-prompt mode.")
 
     # Fallback: original multi-threaded per-prompt logic.
     responses = [None] * len(prompts)
@@ -201,52 +186,50 @@ def get_scores(
                         prompt_object.subject_evaluation_prompt(prompt, response)
                     )
 
-            llm = LLM(evaluator_model, system_prompt)
-            from src.llms import AnthropicLLM
+            print(f"[DEBUG] Using batch API for evaluator model '{evaluator_model}' with {len(eval_prompts_local)} evaluation prompts")
+            evaluator_responses = batch_model_response(
+                prompts=eval_prompts_local,
+                system_prompt=system_prompt,
+                model=evaluator_model,
+                temperature=0,
+                top_p=1,
+                max_tokens=evaluator_max_tokens,
+            )
+            print(f"[DEBUG] Received evaluator batch responses ({len(evaluator_responses)})")
 
-            if isinstance(llm.llm, AnthropicLLM) and hasattr(llm.llm, "chat_batch"):
-                print(f"[DEBUG] Using batch API for evaluator model '{evaluator_model}' with {len(eval_prompts_local)} evaluation prompts")
-                evaluator_responses = llm.llm.chat_batch(
-                    eval_prompts_local,
-                    temperature=0,
-                    top_p=1,
-                    max_tokens=evaluator_max_tokens,
-                )
-                print(f"[DEBUG] Received evaluator batch responses ({len(evaluator_responses)})")
+            # Post-process: compute scores and deductions
+            scores = []
+            system_prompts = []
+            eval_prompts_out = []
+            for eval_prompt, evaluator_response in zip(eval_prompts_local, evaluator_responses):
+                try:
+                    total_deduction = sum_deductions_from_json(
+                        evaluator_response, prompt_object.deductions
+                    )
+                except Exception:
+                    # Mirror error handling of score_response
+                    error_placeholders = [
+                        "[RATE LIMIT ERROR DURING LLM CHAT]",
+                        "[ERROR DURING LLM CHAT]",
+                        "[GENERATION STOPPED DUE TO RECITATION]",
+                        "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]",
+                    ]
+                    if evaluator_response in error_placeholders:
+                        total_deduction = prompt_object.top_eval_score
+                    else:
+                        total_deduction = prompt_object.top_eval_score
 
-                # Post-process: compute scores and deductions
-                scores = []
-                system_prompts = []
-                eval_prompts_out = []
-                for eval_prompt, evaluator_response in zip(eval_prompts_local, evaluator_responses):
-                    try:
-                        total_deduction = sum_deductions_from_json(
-                            evaluator_response, prompt_object.deductions
-                        )
-                    except Exception:
-                        # Mirror error handling of score_response
-                        error_placeholders = [
-                            "[RATE LIMIT ERROR DURING LLM CHAT]",
-                            "[ERROR DURING LLM CHAT]",
-                            "[GENERATION STOPPED DUE TO RECITATION]",
-                            "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]",
-                        ]
-                        if evaluator_response in error_placeholders:
-                            total_deduction = prompt_object.top_eval_score
-                        else:
-                            total_deduction = prompt_object.top_eval_score
+                score_val = max(prompt_object.top_eval_score - total_deduction, 0)
+                scores.append(score_val)
+                system_prompts.append(system_prompt)
+                eval_prompts_out.append(eval_prompt)
 
-                    score_val = max(prompt_object.top_eval_score - total_deduction, 0)
-                    scores.append(score_val)
-                    system_prompts.append(system_prompt)
-                    eval_prompts_out.append(eval_prompt)
-
-                return (
-                    scores,
-                    system_prompts,
-                    eval_prompts_out,
-                    evaluator_responses,
-                )
+            return (
+                scores,
+                system_prompts,
+                eval_prompts_out,
+                evaluator_responses,
+            )
     except Exception as e:
         print(f"[WARN] Batch evaluator path failed for model {evaluator_model}: {e}. Falling back to per-prompt mode.")
 
