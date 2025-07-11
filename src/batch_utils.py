@@ -92,6 +92,7 @@ def batch_model_response(
     temperature: float,
     top_p: float,
     max_tokens: int,
+    stage_name: str = "Unknown Stage",
 ) -> List[str]:
     """Return assistant responses for *prompts* with caching and batch API.
 
@@ -117,27 +118,70 @@ def batch_model_response(
         return [r for r in responses]  # All hits
 
     # 2. Send batch for misses ---------------------------------------------
-    llm = LLM(model, system_prompt)
+    # Try generic BatchEngine first; gracefully fall back to sequential calls
+    from src.batching.engine import BatchEngine, BatchUnsupported
 
-    # Only Anthropic models currently expose chat_batch; fallback to per-prompt.
-    from src.llms import AnthropicLLM
-    if isinstance(llm.llm, AnthropicLLM):
-        batch_prompts = [prompts[i] for i in uncached_indices]
-        batch_responses = llm.llm.chat_batch(
-            batch_prompts,
+    batch_prompts = [prompts[i] for i in uncached_indices]
+
+    try:
+        batch_responses, batch_usage = BatchEngine.dispatch(
+            model=model,
+            system_prompt=system_prompt,
+            prompts=batch_prompts,
+            stage_name=stage_name,
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_tokens,
         )
-    else:
-        # Fallback: sequential calls (rare – other providers unbatched anyway)
-        batch_prompts = [prompts[i] for i in uncached_indices]
-        batch_responses = [
-            llm.chat(p, temperature=temperature, top_p=top_p, max_tokens=max_tokens)["content"]
-            if isinstance(llm.chat(p, temperature=temperature, top_p=top_p, max_tokens=max_tokens), dict)
-            else llm.chat(p, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-            for p in batch_prompts
-        ]
+        print(f"[DEBUG] Dispatched batch request for model '{model}' ({len(batch_prompts)} prompts).")
+        # Ensure we have a usage list aligned with batch_responses length
+        if batch_usage is None or len(batch_usage) != len(batch_responses):
+            batch_usage = [None] * len(batch_responses)
+    except BatchUnsupported as e:
+        print(f"[INFO] Falling back to threaded per-prompt calls for model '{model}' – batch unsupported ({e}). Progress bar will appear.")
+        batch_responses, batch_usage = [], []
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from tqdm import tqdm as _tqdm
+
+        def _single_call(prompt_str: str):
+            single_llm = LLM(model, system_prompt)
+            resp = single_llm.chat(prompt_str, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+            if isinstance(resp, dict):
+                return resp.get("content", ""), resp.get("usage")
+            return resp, None
+
+        max_workers = min(16, len(batch_prompts))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {executor.submit(_single_call, p): idx for idx, p in enumerate(batch_prompts)}
+            for future in _tqdm(as_completed(future_to_idx), total=len(future_to_idx), desc=f"Threaded fallback ({model})"):
+                idx = future_to_idx[future]
+                content, usage_obj = future.result()
+                batch_responses.append((idx, content))
+                batch_usage.append((idx, usage_obj))
+
+        # restore original order
+        batch_responses_sorted = [None]*len(batch_prompts)
+        batch_usage_sorted = [None]*len(batch_prompts)
+        for idx, txt in batch_responses:
+            batch_responses_sorted[idx]=txt
+        for idx, u in batch_usage:
+            batch_usage_sorted[idx]=u
+        batch_responses, batch_usage = batch_responses_sorted, batch_usage_sorted
+
+    except Exception as e:
+        print(f"[WARN] Batch engine error for model '{model}': {e}. Falling back to sequential calls.")
+        llm = LLM(model, system_prompt)
+        batch_responses = []
+        batch_usage = []
+        for p in batch_prompts:
+            r = llm.chat(p, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+            if isinstance(r, dict):
+                batch_responses.append(r.get("content", ""))
+                batch_usage.append(r.get("usage"))
+            else:
+                batch_responses.append(r)
+                batch_usage.append(None)
 
     # Sanity check
     assert len(batch_responses) == len(uncached_indices), "Mismatch in batch response length"
@@ -145,6 +189,7 @@ def batch_model_response(
     # 3. Fill responses list & write cache ---------------------------------
     for local_idx, global_idx in enumerate(uncached_indices):
         resp_text = batch_responses[local_idx]
+        usage_obj = batch_usage[local_idx] if local_idx < len(batch_usage) else None
         responses[global_idx] = resp_text
         _write_cached(
             prompts[global_idx],
@@ -171,7 +216,7 @@ def batch_model_response(
                     response=resp_text,
                     metadata={"batched": True},
                     cached_input=False,
-                    usage=None,
+                    usage=usage_obj,
                 )
         except Exception:
             pass
