@@ -594,7 +594,25 @@ class GeminiLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
             generation_config=generation_config
         )
 
-        response_text = response.text
+        # Gemini may sometimes return a response whose candidate has no textual `Part`,
+        # which causes `response.text` to raise an exception (finish_reason != 0, etc.).
+        try:
+            response_text = response.text
+        except Exception:
+            response_text = ""
+            try:
+                if hasattr(response, "candidates"):
+                    for cand in response.candidates:
+                        content = getattr(cand, "content", None)
+                        if content:
+                            for part in content:
+                                part_text = getattr(part, "text", None)
+                                if part_text:
+                                    response_text += part_text
+            except Exception as e:
+                # If extraction still fails, default to empty string to avoid crashing.
+                response_text = ""
+                print(f"Error extracting Gemini response text: {e}, response: response")
 
         self.messages.append({"role": "assistant", "content": response_text})
 
