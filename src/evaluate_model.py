@@ -9,13 +9,37 @@ import google.generativeai.types as generation_types
 from src.prompts.prompt_base import PromptBase
 from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
-from src.batch_utils import batch_model_response
+
 
 N_CONCURRENT_REQUESTS = 1000
 
 
 @hash_cache()
-def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens):
+def cached_batch_call(
+    prompts_tuple: tuple,
+    system_prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+    top_p: float,
+    stage_name: str,
+    use_cache: bool = True, 
+    refresh_cache: bool = False
+):
+    from src.batch_utils import batch_model_response
+    return batch_model_response(
+        prompts=list(prompts_tuple),
+        system_prompt=system_prompt,
+        model=model,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        stage_name=stage_name,
+    )
+
+
+@hash_cache()
+def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens, *, use_cache: bool = True, refresh_cache: bool = False):
     # Removed semaphore acquisition logic for provider-specific throttling
     response = ""
     llm = LLM(model, system_prompt)
@@ -37,36 +61,44 @@ def model_response(prompt, system_prompt, model, temperature, top_p, max_tokens)
 
 
 def get_model_responses(
-    prompts, 
-    system_prompts, model: str, temperature: float, top_p: float, max_tokens: int, use_cache: bool, refresh_cache: bool
+    prompts,
+    system_prompts,
+    model: str,
+    temperature: float,
+    top_p: float,
+    max_tokens: int,
+    use_cache: bool,
+    refresh_cache: bool,
+    stage_name: str = "Subject Model Response",
+    use_batching: bool = False,
 ):
-    """Retrieve model responses for a list of prompts.
-
-    If the target model is an Anthropic Claude model, we attempt to use the
-    newly-added Message Batches API for efficiency.  If that fails for any
-    reason, we transparently fall back to the existing per-prompt threaded
-    logic so the evaluation never breaks.
     """
-
-    # Try batched path using helper (works only when system prompts identical)
-    if (model.startswith(("claude", "gpt-", "o"))) and len(set(system_prompts)) == 1:
+    Retrieve model responses for a list of prompts, handling batching and caching.
+    """
+    
+    # --- Fast path: Use Batch API if possible and all system prompts are the same ---
+    if use_batching and model.startswith(("claude", "gpt-", "o")) and len(set(system_prompts)) == 1:
+        print(f"[DEBUG] Using batch API path for {model} with {len(prompts)} prompts")
         try:
-            responses = batch_model_response(
-                prompts=prompts,
+            # Pass a tuple of prompts to make it hashable for the cache
+            responses = cached_batch_call(
+                prompts_tuple=tuple(prompts),
                 system_prompt=system_prompts[0],
                 model=model,
+                max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
-                max_tokens=max_tokens,
-                stage_name="Subject Model Response",
+                stage_name=stage_name,
+                use_cache=use_cache,
+                refresh_cache=refresh_cache,  
+                
             )
             return responses, system_prompts
         except Exception as e:
-            print(f"[WARN] batch_model_response failed for model {model}: {e}. Falling back to per-prompt mode.")
+            print(f"[WARN] Batch path failed for model {model}: {e}. Falling back to per-prompt mode.")
 
-    # Fallback: original multi-threaded per-prompt logic.
+    # --- Fallback: Original multi-threaded per-prompt logic ---
     responses = [None] * len(prompts)
-
     with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
         future_to_index = {
             executor.submit(
@@ -82,192 +114,82 @@ def get_model_responses(
             ): i
             for i, (prompt, system_prompt) in enumerate(zip(prompts, system_prompts))
         }
-        for future in tqdm(
-            as_completed(future_to_index),
-            total=len(future_to_index),
-            desc=f"Getting student model responses: {model}",
-        ):
+        for future in tqdm(as_completed(future_to_index), total=len(prompts), desc=f"Getting responses for {stage_name}: {model}"):
             index = future_to_index[future]
-            responses[index], system_prompts[index] = future.result()
-
+            # model_response returns a tuple (response, system_prompt), we just need the response
+            responses[index], _ = future.result()
+            
     return responses, system_prompts
 
 
-def score_response(
-    prompt_object: PromptBase,
-    prompt,
-    response,
-    model,
-    use_cache: bool,
-    refresh_cache: bool,
+def get_scores(
+    prompts,
+    subject_responses,
+    prompt_object,
+    evaluator_model,
+    use_cache,
+    refresh_cache,
+    subject_model,
     misinformation=None,
-    evaluator_max_tokens: int = 5000
+    evaluator_max_tokens: int = 5000,
 ):
+    """
+    Computes scores for a list of subject model responses using a specified evaluator model.
+    """
+    # 1. Prepare the prompts for the evaluator model
+    eval_prompts = []
+    eval_system_prompts = []
     system_prompt = prompt_object.subject_evaluation_system_prompt()
-    
-    if misinformation:
-        eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response, misinformation)
-    else:
-        eval_prompt = prompt_object.subject_evaluation_prompt(prompt, response)
+    for i, (prompt, response) in enumerate(zip(prompts, subject_responses)):
+        if misinformation:
+            eval_prompts.append(
+                prompt_object.subject_evaluation_prompt(prompt, response, misinformation[i])
+            )
+        else:
+            eval_prompts.append(
+                prompt_object.subject_evaluation_prompt(prompt, response)
+            )
+        eval_system_prompts.append(system_prompt)
 
-    # Call model_response with the evaluator_max_tokens parameter
-    evaluator_response_text = model_response(
-        prompt=eval_prompt,
-        system_prompt=system_prompt,
-        model=model,
+    # 2. Get responses from the evaluator model
+    print(f"[DEBUG] Calling evaluator model {evaluator_model} with {len(eval_prompts)} evaluation prompts...")
+    evaluator_responses, _ = get_model_responses(
+        prompts=eval_prompts,
+        system_prompts=eval_system_prompts,
+        model=evaluator_model,
         temperature=0,
         top_p=1,
         max_tokens=evaluator_max_tokens,
         use_cache=use_cache,
-        refresh_cache=refresh_cache
-    )[0]
+        refresh_cache=refresh_cache,
+        stage_name="Evaluator Scoring",
+        use_batching=True, # Always attempt to batch for the judge
+    )
+    print(f"[DEBUG] Got {len(evaluator_responses)} evaluator responses")
 
-    # Check for known error placeholders before attempting JSON parsing
+    # 3. Calculate scores from the evaluator's responses
+    scores = []
     error_placeholders = [
         "[RATE LIMIT ERROR DURING LLM CHAT]",
         "[ERROR DURING LLM CHAT]",
         "[GENERATION STOPPED DUE TO RECITATION]",
         "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"
     ]
+    for evaluator_response in evaluator_responses:
+        total_deduction = 0
+        if evaluator_response in error_placeholders:
+            total_deduction = prompt_object.top_eval_score
+        else:
+            try:
+                total_deduction = sum_deductions_from_json(evaluator_response, prompt_object.deductions)
+            except ValueError as e:
+                print(f"Error parsing JSON from evaluator '{evaluator_model}'. Assigning max deduction. Error: {e}")
+                total_deduction = prompt_object.top_eval_score
 
-    if evaluator_response_text in error_placeholders:
-        print(f"Warning: Evaluator model '{model}' returned an error placeholder: {evaluator_response_text}. Assigning score 0.")
-        # Assign max deduction so score becomes 0 after max(..., 0)
-        total_deduction = prompt_object.top_eval_score 
-    else:
-        try:
-            total_deduction = sum_deductions_from_json(evaluator_response_text, prompt_object.deductions)
-        except ValueError as e: # Catch parsing errors specifically
-            print(f"Error parsing JSON from evaluator '{model}'. Assigning score 0. Error: {e}")
-            print(f"Evaluator Response causing error: {evaluator_response_text}")
-            total_deduction = prompt_object.top_eval_score # Assign max deduction
+        score = max(prompt_object.top_eval_score - total_deduction, 0)
+        scores.append(score)
 
-    score = max(prompt_object.top_eval_score - total_deduction, 0)
-
-    if not (0 <= score <= prompt_object.top_eval_score): # Adjusted lower bound check
-        print(f"Warning: Score calculation resulted in unexpected value. Score: {score}, Top possible score: {prompt_object.top_eval_score}, Deduction: {total_deduction}. Clamping score.")
-        score = max(0, min(score, prompt_object.top_eval_score))
-    
-    # Return the original evaluator response text, even if it was an error
-    return score, system_prompt, eval_prompt, evaluator_response_text
-        
-
-def get_scores(
-    prompts, 
-    subject_responses, 
-    prompt_object, 
-    evaluator_model, 
-    use_cache, 
-    refresh_cache, 
-    subject_model, 
-    misinformation=None,
-    evaluator_max_tokens: int = 5000
-):
-    """Compute scores for a list of subject model responses.
-
-    Uses Anthropic Message-Batch API when the evaluator model is a Claude
-    variant, otherwise falls back to the existing threaded single-request
-    logic.
-    """
-
-    # Try batch for Claude evaluator
-    try:
-        if evaluator_model.startswith(("claude", "gpt-", "o")):
-            system_prompt = prompt_object.subject_evaluation_system_prompt()
-
-            # Build evaluation prompts list (same logic as in score_response)
-            eval_prompts_local = []
-            for i, (prompt, response) in enumerate(zip(prompts, subject_responses)):
-                if misinformation:
-                    eval_prompts_local.append(
-                        prompt_object.subject_evaluation_prompt(prompt, response, misinformation[i])
-                    )
-                else:
-                    eval_prompts_local.append(
-                        prompt_object.subject_evaluation_prompt(prompt, response)
-                    )
-
-            evaluator_responses = batch_model_response(
-                prompts=eval_prompts_local,
-                system_prompt=system_prompt,
-                model=evaluator_model,
-                temperature=0,
-                top_p=1,
-                max_tokens=evaluator_max_tokens,
-                stage_name="Evaluator Scoring",
-            )
-
-            # Post-process: compute scores and deductions
-            scores = []
-            system_prompts = []
-            eval_prompts_out = []
-            for eval_prompt, evaluator_response in zip(eval_prompts_local, evaluator_responses):
-                try:
-                    total_deduction = sum_deductions_from_json(
-                        evaluator_response, prompt_object.deductions
-                    )
-                except Exception:
-                    # Mirror error handling of score_response
-                    error_placeholders = [
-                        "[RATE LIMIT ERROR DURING LLM CHAT]",
-                        "[ERROR DURING LLM CHAT]",
-                        "[GENERATION STOPPED DUE TO RECITATION]",
-                        "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]",
-                    ]
-                    if evaluator_response in error_placeholders:
-                        total_deduction = prompt_object.top_eval_score
-                    else:
-                        total_deduction = prompt_object.top_eval_score
-
-                score_val = max(prompt_object.top_eval_score - total_deduction, 0)
-                scores.append(score_val)
-                system_prompts.append(system_prompt)
-                eval_prompts_out.append(eval_prompt)
-
-            return (
-                scores,
-                system_prompts,
-                eval_prompts_out,
-                evaluator_responses,
-            )
-    except Exception as e:
-        print(f"[WARN] Batch evaluator path failed for model {evaluator_model}: {e}. Falling back to per-prompt mode.")
-
-    # Fallback: threaded per-prompt scoring
-    scores = [None] * len(prompts)
-    system_prompts = [None] * len(prompts)
-    eval_prompts = [None] * len(prompts)
-    evaluator_responses = [None] * len(prompts)
-
-    with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
-        future_to_index = {
-            executor.submit(
-                score_response,
-                prompt_object=prompt_object,
-                prompt=prompt,
-                response=response,
-                model=evaluator_model,
-                use_cache=use_cache,
-                refresh_cache=refresh_cache,
-                misinformation=misinformation[i] if misinformation else None,
-                evaluator_max_tokens=evaluator_max_tokens,
-            ): i
-            for i, (prompt, response) in enumerate(zip(prompts, subject_responses))
-        }
-        for future in tqdm(
-            as_completed(future_to_index),
-            total=len(future_to_index),
-            desc=f"Scoring responses: {subject_model}",
-        ):
-            index = future_to_index[future]
-            (
-                scores[index],
-                system_prompts[index],
-                eval_prompts[index],
-                evaluator_responses[index],
-            ) = future.result()
-
-    return scores, system_prompts, eval_prompts, evaluator_responses
+    return scores, eval_system_prompts, eval_prompts, evaluator_responses
 
 
 def evaluate_model(
@@ -279,15 +201,17 @@ def evaluate_model(
     use_cache, refresh_cache,
     evaluator_max_tokens: int = 5000,
     gemini_max_tokens: int = 8192,
-    misinformation=None
+    misinformation=None,
+    use_batching_for_subjects: bool = False,
 ): # Note: gemini_max_tokens default isn't used if passed from config
+    print(f"\n[DEBUG] Starting evaluation for subject_model: {subject_model}")
 
     subject_model_system_prompt = [prompt_object.subject_model_system_prompt() for _ in range(len(prompts))]
 
     # Select the appropriate max_tokens based on the specific subject model
     specific_gemini_models = [
-        "models/gemini-2.5-pro-preview-03-25",
-        "models/gemini-2.5-flash-preview-04-17"
+        "models/gemini-2.5-pro",
+        "models/gemini-2.5-flash"
     ]
     
     # Apply gemini_max_tokens if the model is one of the specific Gemini models
@@ -297,6 +221,7 @@ def evaluate_model(
     else:
         current_subject_max_tokens = subject_max_tokens
 
+    print(f"[DEBUG] Getting subject model responses for {subject_model} with {len(prompts)} prompts...")
     subject_responses, subject_system_prompts = get_model_responses(
         prompts=prompts, 
         system_prompts=subject_model_system_prompt, 
@@ -305,11 +230,19 @@ def evaluate_model(
         top_p=subject_model_top_p,
         max_tokens=current_subject_max_tokens, 
         use_cache=use_cache, 
-        refresh_cache=refresh_cache
+        refresh_cache=refresh_cache,
+        use_batching=use_batching_for_subjects,
     )
+    print(f"[DEBUG] Got {len(subject_responses)} subject responses")
     
-    scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \
-        get_scores(
+    # Check if we have any actual responses or just errors
+    error_count = sum(1 for r in subject_responses if r in ["[RATE LIMIT ERROR DURING LLM CHAT]", "[ERROR DURING LLM CHAT]", "[GENERATION STOPPED DUE TO RECITATION]", "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"])
+    print(f"[DEBUG] Subject responses: {len(subject_responses) - error_count} successful, {error_count} errors")
+    
+    print(f"[DEBUG] Getting evaluator scores using {evaluator_model}...")
+    try:
+        scores, evaluator_system_prompts, evaluator_prompts, evaluator_responses = \
+            get_scores(
             prompts=prompts,
             subject_responses=subject_responses,
             prompt_object=prompt_object,
@@ -320,7 +253,14 @@ def evaluate_model(
             misinformation=misinformation,
             evaluator_max_tokens=evaluator_max_tokens
         )
+        print(f"[DEBUG] Got {len(scores)} scores from evaluator")
+    except Exception as e:
+        print(f"[ERROR] Failed to get scores from evaluator: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
+    print(f"[DEBUG] Returning from evaluate_model for {subject_model}")
     return scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses
 
 
@@ -336,47 +276,59 @@ def evaluate_many_subject_models(
     refresh_cache: bool,
     gemini_max_tokens: int = 8192,
     misinformation: List[str] = None,
-    evaluator_max_tokens: int = 5000,
+    evaluator_max_tokens: int = 8192,
+    use_batching_for_subjects: bool = False,
+    max_concurrent_subjects: int = 6,
 ) -> pd.DataFrame:
     dfs = []
 
-    with ThreadPoolExecutor(max_workers=len(subject_models)) as executor:
-        futures_to_index = {}
-        for subject_model in subject_models:
-            futures_to_index.update({
-                executor.submit(
-                    evaluate_model,
-                    prompts=prompts,
-                    evaluator_model=evaluator_model,
-                    subject_model=subject_model,
-                    subject_model_temperature=subject_model_temperature,
-                    subject_model_top_p=subject_model_top_p,
-                    subject_max_tokens=subject_max_tokens,
-                    prompt_object=prompt_object,
-                    use_cache=use_cache,
-                    refresh_cache=refresh_cache,
-                    gemini_max_tokens=gemini_max_tokens,
-                    misinformation=misinformation,
-                    evaluator_max_tokens=evaluator_max_tokens,
-                ): subject_model
-            })
+    with ThreadPoolExecutor(max_workers=max_concurrent_subjects) as executor:
+        futures_to_model = {
+            executor.submit(
+                evaluate_model,
+                prompts=prompts,
+                evaluator_model=evaluator_model,
+                subject_model=subject_model,
+                subject_model_temperature=subject_model_temperature,
+                subject_model_top_p=subject_model_top_p,
+                subject_max_tokens=subject_max_tokens,
+                prompt_object=prompt_object,
+                use_cache=use_cache,
+                refresh_cache=refresh_cache,
+                gemini_max_tokens=gemini_max_tokens,
+                misinformation=misinformation,
+                evaluator_max_tokens=evaluator_max_tokens,
+                use_batching_for_subjects=use_batching_for_subjects,
+            ): subject_model
+            for subject_model in subject_models
+        }
 
-        for future in as_completed(futures_to_index):
-            subject_model = futures_to_index[future]
-            scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses = future.result()
+        for future in tqdm(as_completed(futures_to_model), total=len(subject_models), desc="Evaluating subject models"):
+            subject_model = futures_to_model[future]
+            try:
+                scores, subject_responses, subject_system_prompts, evaluator_system_prompts, evaluator_prompts, evaluator_responses = future.result()
 
-            df = pd.DataFrame({
-                'prompt': prompts,
-                'score': scores,
-                'subject_response': subject_responses,
-                'subject_system_prompt': subject_system_prompts,
-                'evaluator_system_prompt': evaluator_system_prompts,
-                'evaluator_prompt': evaluator_prompts,
-                'evaluator_response': evaluator_responses,
-                'subject_model': subject_model
-            })
+                df = pd.DataFrame({
+                    'prompt': prompts,
+                    'score': scores,
+                    'subject_response': subject_responses,
+                    'subject_system_prompt': subject_system_prompts,
+                    'evaluator_system_prompt': evaluator_system_prompts,
+                    'evaluator_prompt': evaluator_prompts,
+                    'evaluator_response': evaluator_responses,
+                    'subject_model': subject_model
+                })
+                dfs.append(df)
+            except Exception as e:
+                print(f"Error evaluating model {subject_model}: {e}")
+                import traceback
+                traceback.print_exc()
 
-            dfs.append(df)
+
+    if not dfs:
+        print(f"WARNING: No successful evaluations for any of the {len(subject_models)} subject models!")
+        print(f"Subject models attempted: {subject_models}")
+        return pd.DataFrame()
 
     df = pd.concat(dfs, ignore_index=True)
 
