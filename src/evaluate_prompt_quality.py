@@ -58,49 +58,26 @@ def calculate_prompt_scores(
     else:
         relevance_prompts = [prompt_object.relevance_check_prompt(prompt) for prompt in prompts]
 
-    if model.startswith(("claude", "gpt-", "o")):
-        from src.batch_utils import batch_model_response
+    with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
 
-        responses = batch_model_response(
-            prompts=relevance_prompts,
-            system_prompt=relevance_system_prompts[0],
+        future_to_index = {executor.submit(
+            get_scores, 
+            prompt=relevance_prompts[i],
+            system_prompt=relevance_system_prompts[i],
             model=model,
-            temperature=0,
-            top_p=1,
-            max_tokens=1000,
-            stage_name="Relevance Check",
-        )
+            use_cache=use_cache,
+            refresh_cache=refresh_cache
+            ): i for i in range(len(prompts))
+        }
+        for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring prompts'):
 
-        for i, resp in enumerate(responses):
-            try:
-                relevance_scores[i] = extract_score_from_xml(resp)
-            except Exception:
-                raise Exception(f"Model returned invalid score format in batch: {resp[:200]}")
-            model_response[i] = resp
-        passed_evaluation = np.zeros(len(prompts), dtype=bool)
+            index = future_to_index[future]
+            relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index], model_response[index] = future.result()
+
+        # get indices of top n prompts
+        relevance_scores = np.array(relevance_scores)
         top_n_indices = np.argsort(relevance_scores)[-n_relevant_prompts:]
+        passed_evaluation = np.zeros(len(prompts), dtype=bool)
         passed_evaluation[top_n_indices] = True
-    else:
-        with ThreadPoolExecutor(max_workers=N_CONCURRENT_REQUESTS) as executor:
-
-            future_to_index = {executor.submit(
-                get_scores, 
-                prompt=relevance_prompts[i],
-                system_prompt=relevance_system_prompts[i],
-                model=model,
-                use_cache=use_cache,
-                refresh_cache=refresh_cache
-                ): i for i in range(len(prompts))
-            }
-            for future in tqdm(as_completed(future_to_index), total=len(future_to_index), desc='Scoring prompts'):
-
-                index = future_to_index[future]
-                relevance_scores[index], relevance_system_prompts[index], relevance_prompts[index], model_response[index] = future.result()
-
-            # get indices of top n prompts
-            relevance_scores = np.array(relevance_scores)
-            top_n_indices = np.argsort(relevance_scores)[-n_relevant_prompts:]
-            passed_evaluation = np.zeros(len(prompts), dtype=bool)
-            passed_evaluation[top_n_indices] = True
 
     return relevance_scores, relevance_system_prompts, relevance_prompts, passed_evaluation, model_response
