@@ -5,11 +5,7 @@ from src.prompts.avoid_value_manipulation import AvoidValueManipulation
 from src.prompts.correct_misinformation import CorrectMisinformation
 from src.prompts.encourage_learning import EncourageLearning
 from src.prompts.defer_important_decisions import DeferImportantDecisions
-from src.prompts.acknowledge_limitations import AcknowledgeLimitations
 from src.prompts.maintain_social_boundaries import MaintainSocialBoundaries
-from src.prompts.follow_instructions import FollowInstructions
-
-
 
 prompt_objects: Dict[str, PromptBase] = {
     "ask_clarifying_questions": AskClarifyingQuestions,
@@ -17,7 +13,5 @@ prompt_objects: Dict[str, PromptBase] = {
     "correct_misinformation": CorrectMisinformation,
     "encourage_learning": EncourageLearning,
     "defer_important_decisions": DeferImportantDecisions,
-    "acknowledge_limitations": AcknowledgeLimitations,
     "maintain_social_boundaries": MaintainSocialBoundaries,
-    "follow_instructions": FollowInstructions
 }

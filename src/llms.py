@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import time
 from threading import Lock
-from typing import Any, Dict, Optional, List, Callable
+from typing import Any, Dict, Optional, Callable, List
 import os
 
 from openai import OpenAI
@@ -51,7 +51,7 @@ class RateLimitedLLM:
 
     def rate_limit_wait(self, tag, req_per_min: float):
 
-        interval = 60 / req_per_min
+        interval = 150 / req_per_min
 
         if tag not in self._rate_limiting:
             self._rate_limiting[tag] = {"last_request": 0, "lock": Lock()}
@@ -223,9 +223,6 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
         self, prompt, temperature, max_tokens, top_p, return_json, return_logprobs=False
     ):
         
-
-
-        self.rate_limit_wait(self.model, 30)
 
         if return_logprobs:
             raise NotImplementedError(
@@ -604,15 +601,15 @@ class GeminiLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
                 if hasattr(response, "candidates"):
                     for cand in response.candidates:
                         content = getattr(cand, "content", None)
-                        if content:
-                            for part in content:
+                        if content and hasattr(content, "parts"):
+                            for part in content.parts:
                                 part_text = getattr(part, "text", None)
                                 if part_text:
                                     response_text += part_text
             except Exception as e:
                 # If extraction still fails, default to empty string to avoid crashing.
                 response_text = ""
-                print(f"Error extracting Gemini response text: {e}, response: response")
+                print(f"Error extracting Gemini response text: {e}, response: {response}")
 
         self.messages.append({"role": "assistant", "content": response_text})
 
@@ -631,10 +628,165 @@ class GeminiLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
         )
 
 
+class OpenRouterLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
+    """OpenRouter LLM implementation using OpenAI-compatible API."""
+    
+    def __init__(self, model: str, system_prompt: str) -> None:
+        super().__init__(system_prompt)
+        self.model = model
+        self.client = OpenAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
+            default_headers={
+                "HTTP-Referer": "https://github.com/agency_evaluations",
+                "X-Title": "Agency Evaluations"
+            }
+        )
+        
+    def chat(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        return_json: bool = False,
+        return_logprobs: bool = False
+    ) -> Dict[str, Any]:
+        """Send a single chat request to OpenRouter."""
+        
+        # Rate limiting - adjust based on model
+        self.rate_limit_wait(self.model, 60)  # Default 60 req/min
+        
+        self.messages.append({"role": "user", "content": prompt})
+        
+        params = {
+            "model": self.model,
+            "messages": self.messages,
+        }
+        
+        # Add optional parameters
+        if temperature is not None:
+            params["temperature"] = temperature
+        if max_tokens is not None:
+            params["max_tokens"] = max_tokens
+        if top_p is not None:
+            params["top_p"] = top_p
+        if return_json:
+            params["response_format"] = {"type": "json_object"}
+        if return_logprobs:
+            params["logprobs"] = True
+            params["top_logprobs"] = 5
+            
+        try:
+            response = self.client.chat.completions.create(**params)
+            response_text = response.choices[0].message.content.strip()
+            self.messages.append({"role": "assistant", "content": response_text})
+            
+            result = {
+                "content": response_text,
+                "usage": response.usage,
+            }
+            
+            if return_logprobs and hasattr(response.choices[0], 'logprobs'):
+                result["logprobs"] = response.choices[0].logprobs
+                
+            return result
+            
+        except Exception as e:
+            # Handle errors gracefully
+            error_msg = f"[ERROR DURING LLM CHAT]: {str(e)}"
+            self.messages.append({"role": "assistant", "content": error_msg})
+            return {
+                "content": error_msg,
+                "usage": None,
+            }
+    
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+        """Get available models from OpenRouter."""
+        def fetch_models():
+            import requests
+            try:
+                response = requests.get("https://openrouter.ai/api/v1/models")
+                if response.status_code == 200:
+                    models_data = response.json()
+                    return [model["id"] for model in models_data.get("data", [])]
+                else:
+                    # Return a default list if API call fails
+                    return cls._get_default_models()
+            except Exception:
+                return cls._get_default_models()
+                
+        return cls.model_cache_get("openrouter_models", fetch_models)
+    
+    @staticmethod
+    def _get_default_models() -> List[str]:
+        """Default list of known OpenRouter models with provider prefixes."""
+        return [
+            # OpenAI models
+            "openai/gpt-4-turbo",
+            "openai/gpt-4-turbo-preview", 
+            "openai/gpt-4",
+            "openai/gpt-3.5-turbo",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "openai/o1-preview",
+            "openai/o1-mini",
+            
+            # Anthropic models  
+            "anthropic/claude-3-opus",
+            "anthropic/claude-3-sonnet",
+            "anthropic/claude-3-haiku",
+            "anthropic/claude-3.5-sonnet",
+            "anthropic/claude-2.1",
+            "anthropic/claude-2",
+            "anthropic/claude-instant-1.2",
+            
+            # Google models
+            "google/gemini-pro",
+            "google/gemini-pro-1.5",
+            "google/gemini-flash-1.5",
+            "google/gemma-2-27b-it",
+            "google/gemma-2-9b-it",
+            
+            # Meta models
+            "meta-llama/llama-3-70b-instruct",
+            "meta-llama/llama-3-8b-instruct",
+            "meta-llama/llama-3.1-405b-instruct",
+            "meta-llama/llama-3.1-70b-instruct",
+            "meta-llama/llama-3.1-8b-instruct",
+            "meta-llama/llama-3.2-90b-vision-instruct",
+            "meta-llama/llama-3.2-11b-vision-instruct",
+            "meta-llama/llama-3.2-3b-instruct",
+            "meta-llama/llama-3.2-1b-instruct",
+            
+            # Mistral models
+            "mistralai/mistral-large",
+            "mistralai/mistral-medium",
+            "mistralai/mixtral-8x22b-instruct",
+            "mistralai/mixtral-8x7b-instruct",
+            "mistralai/mistral-7b-instruct",
+            "mistralai/mistral-small",
+            
+            # Other popular models
+            "deepseek/deepseek-chat",
+            "deepseek/deepseek-coder",
+            "nousresearch/hermes-3-llama-3.1-405b",
+            "qwen/qwen-2.5-72b-instruct",
+            "qwen/qwen-2.5-32b-instruct",
+            "cohere/command-r-plus",
+            "cohere/command-r",
+            "x-ai/grok-beta",
+            "perplexity/llama-3.1-sonar-large-128k-chat",
+            "perplexity/llama-3.1-sonar-small-128k-chat",
+        ]
+
+
 class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
         self.model = model
+        
         if model in GeminiLLM.get_available_models():
             self.llm = GeminiLLM(model, system_prompt)
         elif model in AnthropicLLM.get_available_models():
@@ -649,6 +801,8 @@ class LLM(ABSTRACT_LLM):
             self.llm = GrokLLM(model, system_prompt)
         elif model in OpenAILLM.get_available_models():
             self.llm = OpenAILLM(model, system_prompt)
+        elif model in OpenRouterLLM.get_available_models():
+            self.llm = OpenRouterLLM(model, system_prompt)
         else:
             all_models = self.get_available_models()
             raise ValueError(
@@ -674,6 +828,7 @@ class LLM(ABSTRACT_LLM):
             return_json=return_json,
             return_logprobs=return_logprobs,
         )
+    
 
     @staticmethod
     def get_available_models():
@@ -685,6 +840,7 @@ class LLM(ABSTRACT_LLM):
             + DeepSeekLLM.get_available_models()
             + GrokLLM.get_available_models()
             + OpenAILLM.get_available_models()
+            + OpenRouterLLM.get_available_models()
         )
         return models
 
