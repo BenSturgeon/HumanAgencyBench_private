@@ -48,6 +48,7 @@ def fuzzy_match_dataframes(df1, df2, prompt_col='prompt', model_col='subject_mod
         Merged dataframe with matched rows
     """
     import re
+    import hashlib
     
     def clean_prompt(text):
         """Clean prompt for fuzzy matching."""
@@ -59,9 +60,18 @@ def fuzzy_match_dataframes(df1, df2, prompt_col='prompt', model_col='subject_mod
         text = text.replace('\n', ' ').replace('\r', ' ')
         # Remove other HTML tags
         text = re.sub(r'<[^>]+>', ' ', text)
+        # Normalize apostrophes and quotes
+        text = text.replace(''', "'").replace(''', "'")  # Smart quotes to regular
+        text = text.replace('"', '"').replace('"', '"')  # Smart double quotes
+        text = text.replace('–', '-').replace('—', '-')  # Em and en dashes
         # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text)
         return text.lower().strip()
+    
+    def generate_prompt_id(prompt, model):
+        """Generate a unique ID for a prompt-model pair."""
+        combined = f"{prompt}_{model}"
+        return hashlib.md5(combined.encode()).hexdigest()[:16]
     
     # First try exact matching after cleaning
     df1 = df1.copy()
@@ -69,10 +79,18 @@ def fuzzy_match_dataframes(df1, df2, prompt_col='prompt', model_col='subject_mod
     df1['prompt_clean'] = df1[prompt_col].apply(clean_prompt)
     df2['prompt_clean'] = df2[prompt_col].apply(clean_prompt)
     
+    # Add truncated prompts for easier inspection
+    df1['prompt_truncated'] = df1['prompt_clean'].str[:100]
+    df2['prompt_truncated'] = df2['prompt_clean'].str[:100]
+    
+    # Generate prompt IDs
+    df1['prompt_id'] = df1.apply(lambda x: generate_prompt_id(x['prompt_clean'], x[model_col]), axis=1)
+    df2['prompt_id'] = df2.apply(lambda x: generate_prompt_id(x['prompt_clean'], x[model_col]), axis=1)
+    
     # Try exact match first (much faster)
     merged_exact = pd.merge(
-        df1[[model_col, 'prompt_clean', score_col, prompt_col]],
-        df2[[model_col, 'prompt_clean', score_col]],
+        df1[[model_col, 'prompt_clean', score_col, prompt_col, 'prompt_truncated', 'prompt_id']],
+        df2[[model_col, 'prompt_clean', score_col, 'prompt_truncated', 'prompt_id']],
         on=[model_col, 'prompt_clean'],
         suffixes=('', '_matched')
     )
@@ -125,6 +143,11 @@ def fuzzy_match_dataframes(df1, df2, prompt_col='prompt', model_col='subject_mod
             matched_row = row1.to_dict()
             matched_row[f'{score_col}_matched'] = best_match[score_col]
             matched_row['match_score'] = best_score
+            # Ensure we have prompt_id and prompt_truncated
+            if 'prompt_id' not in matched_row:
+                matched_row['prompt_id'] = generate_prompt_id(row1['prompt_clean'], row1[model_col])
+            if 'prompt_truncated' not in matched_row:
+                matched_row['prompt_truncated'] = row1['prompt_clean'][:100]
             matched_rows.append(matched_row)
     
     return pd.DataFrame(matched_rows)
@@ -154,7 +177,7 @@ def main():
     human_annotations_file = base_path / 'new_human_annotations.csv'
     
     print("=" * 80)
-    print("KRIPPENDORFF'S ALPHA ANALYSIS - INDIVIDUAL ANNOTATIONS")
+    print("GENERATING REPLICATION DATASET")
     print("=" * 80)
     
     if not human_annotations_file.exists():
@@ -425,6 +448,157 @@ def main():
         print(f"  krippendorff_ai_individual_results.csv")
         print(f"  krippendorff_human_individual_results.csv")
     
+    # Create one giant CSV with all cleaned data from humans and all 4 evaluators
+    print("\nCreating unified dataset with all annotations...")
+    all_annotations = []
+    
+    # Helper function for cleaning prompts
+    import re
+    import hashlib
+    
+    def clean_prompt_for_matching(text):
+        if pd.isna(text):
+            return ""
+        text = str(text)
+        text = re.sub(r'<br\s*/?>', ' ', text)
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = re.sub(r'<[^>]+>', ' ', text)
+        # Normalize apostrophes and quotes
+        text = text.replace(''', "'").replace(''', "'")  # Smart quotes to regular
+        text = text.replace('"', '"').replace('"', '"')  # Smart double quotes
+        text = text.replace('–', '-').replace('—', '-')  # Em and en dashes
+        text = re.sub(r'\s+', ' ', text)
+        return text.lower().strip()
+    
+    def generate_prompt_id(prompt, model):
+        combined = f"{prompt}_{model}"
+        return hashlib.md5(combined.encode()).hexdigest()[:16]
+    
+    # For fuzzy matching when exact match fails
+    def find_fuzzy_match_id(prompt_clean, model, existing_data, threshold=99):
+        """Find a matching prompt_id using fuzzy matching."""
+        from rapidfuzz import fuzz
+        best_match_id = None
+        best_score = 0
+        
+        # Look for similar prompts with same model
+        candidates = existing_data[existing_data['subject_model'] == model]
+        for _, row in candidates.iterrows():
+            similarity = fuzz.ratio(prompt_clean, row.get('prompt_clean', ''))
+            if similarity > best_score and similarity >= threshold:
+                best_score = similarity
+                best_match_id = row.get('prompt_id')
+        
+        return best_match_id if best_score >= threshold else None
+    
+    # First pass - collect all evaluator data to enable fuzzy matching
+    evaluator_annotations = []
+    
+    for task in tasks:
+        print(f"  Processing {task}...")
+        
+        # Process each evaluator's data first
+        for eval_name, eval_path in evaluators.items():
+            csv_path = eval_path / task / 'raw.csv'
+            if csv_path.exists():
+                eval_df = pd.read_csv(csv_path)
+                eval_df['score'] = pd.to_numeric(eval_df['score'], errors='coerce')
+                eval_df = eval_df.dropna(subset=['score'])
+                eval_df['prompt_clean'] = eval_df['prompt'].apply(clean_prompt_for_matching)
+                eval_df['prompt_truncated'] = eval_df['prompt_clean'].str[:100]
+                eval_df['prompt_id'] = eval_df.apply(
+                    lambda x: generate_prompt_id(x['prompt_clean'], x['subject_model']), axis=1
+                )
+                
+                # Remove duplicates
+                eval_df = eval_df.drop_duplicates(subset=['prompt_id', 'subject_model'], keep='first')
+                
+                # Add evaluator annotations to list
+                for _, row in eval_df.iterrows():
+                    evaluator_annotations.append({
+                        'task': task,
+                        'evaluator': eval_name,
+                        'annotator_id': f'{eval_name}_evaluator',
+                        'subject_model': row['subject_model'],
+                        'prompt_id': row['prompt_id'],
+                        'prompt_truncated': row['prompt_truncated'],
+                        'prompt_clean': row['prompt_clean'],
+                        'prompt_original': row['prompt'],
+                        'subject_response': row.get('subject_response', row.get('response', '')),
+                        'score': row['score']
+                    })
+    
+    # Convert to DataFrame for fuzzy matching
+    evaluator_df = pd.DataFrame(evaluator_annotations)
+    all_annotations.extend(evaluator_annotations)
+    
+    # Second pass - process human data with fuzzy matching
+    for task in tasks:
+        # Process human data
+        task_human = human_df[human_df['dim'] == task].copy()
+        if len(task_human) > 0:
+            task_human['score'] = pd.to_numeric(task_human['score'], errors='coerce')
+            task_human = task_human.dropna(subset=['score'])
+            task_human['prompt_clean'] = task_human['prompt'].apply(clean_prompt_for_matching)
+            task_human['prompt_truncated'] = task_human['prompt_clean'].str[:100]
+            
+            # Generate initial prompt_id
+            task_human['prompt_id'] = task_human.apply(
+                lambda x: generate_prompt_id(x['prompt_clean'], x['subject_model']), axis=1
+            )
+            
+            # Check if this prompt_id exists in evaluator data
+            # If not, try fuzzy matching
+            for idx, row in task_human.iterrows():
+                prompt_id = row['prompt_id']
+                model = row['subject_model']
+                
+                # Check if this prompt_id exists in evaluator data
+                exists = ((evaluator_df['prompt_id'] == prompt_id) & 
+                         (evaluator_df['subject_model'] == model)).any()
+                
+                if not exists:
+                    # Try fuzzy matching
+                    fuzzy_id = find_fuzzy_match_id(
+                        row['prompt_clean'], 
+                        model, 
+                        evaluator_df[evaluator_df['task'] == task],
+                        threshold=99
+                    )
+                    if fuzzy_id:
+                        print(f"    Fuzzy matched human prompt for {model} in {task}")
+                        task_human.at[idx, 'prompt_id'] = fuzzy_id
+            
+            # Add human annotations to unified dataset
+            for _, row in task_human.iterrows():
+                all_annotations.append({
+                    'task': task,
+                    'evaluator': 'human',
+                    'annotator_id': str(row.get('prolific_id_hash', 'unknown')) if not pd.isna(row.get('prolific_id_hash')) else 'unknown',
+                    'subject_model': row['subject_model'],
+                    'prompt_id': row['prompt_id'],
+                    'prompt_truncated': row['prompt_truncated'],
+                    'prompt_clean': row['prompt_clean'],
+                    'prompt_original': row['prompt'],
+                    'subject_response': row.get('subject_response', ''),
+                    'score': row['score']
+                })
+    
+    # Save the unified dataset
+    if all_annotations:
+        unified_df = pd.DataFrame(all_annotations)
+        unified_file = base_path / 'krippendorff_unified_annotations.csv'
+        unified_df.to_csv(unified_file, index=False)
+        print(f"\nUnified dataset saved to: {unified_file.name}")
+        print(f"  Total annotations: {len(unified_df):,}")
+        print(f"  Human annotations: {len(unified_df[unified_df['evaluator'] == 'human']):,}")
+        print(f"  Gemini annotations: {len(unified_df[unified_df['evaluator'] == 'gemini']):,}")
+        print(f"  Claude annotations: {len(unified_df[unified_df['evaluator'] == 'claude']):,}")
+        print(f"  O3 annotations: {len(unified_df[unified_df['evaluator'] == 'o3']):,}")
+        print(f"  4.1 annotations: {len(unified_df[unified_df['evaluator'] == '4.1']):,}")
+        print(f"  Unique prompt IDs: {unified_df['prompt_id'].nunique():,}")
+        print(f"  Tasks: {', '.join(unified_df['task'].unique())}")
+    
     # Also save the matched individual annotations for inspection
     print("\nSaving matched individual annotations...")
     all_matched_data = []
@@ -458,9 +632,14 @@ def main():
                         matched['human_score'] = matched['score']
                         matched['ai_score'] = matched['score_matched']
                         
-                        # Keep essential columns
-                        matched = matched[['task', 'evaluator', 'subject_model', 'prompt', 
-                                         'human_score', 'ai_score']]
+                        # Keep essential columns including new ID, truncated prompt, and human annotator ID
+                        columns_to_keep = ['task', 'evaluator', 'subject_model', 'prompt_id', 
+                                         'prompt_truncated', 'prompt', 'human_score', 'ai_score',
+                                         'prolific_id_hash']  # Include human annotator ID
+                        
+                        # Only include columns that exist in matched
+                        available_columns = [col for col in columns_to_keep if col in matched.columns]
+                        matched = matched[available_columns]
                         all_matched_data.append(matched)
     
     if all_matched_data:
@@ -469,6 +648,63 @@ def main():
         matched_df.to_csv(matched_file, index=False)
         print(f"  Matched individual annotations saved to: {matched_file.name}")
         print(f"  Total matched annotations: {len(matched_df):,}")
+        
+        replication_data = []
+        
+        for task in tasks:
+            task_matches = matched_df[matched_df['task'] == task]
+            if len(task_matches) > 0:
+                # Group by prompt_id and subject_model to get all annotations per prompt-model pair
+                for (prompt_id, subject_model), group in task_matches.groupby(['prompt_id', 'subject_model']):
+                    # Get all human annotators and their scores for this prompt-model pair
+                    human_annotations = []
+                    if 'prolific_id_hash' in group.columns:
+                        for _, row in group.iterrows():
+                            annotator_id = row.get('prolific_id_hash', 'unknown')
+                            # Handle NaN or float values
+                            if pd.isna(annotator_id):
+                                annotator_id = 'unknown'
+                            else:
+                                annotator_id = str(annotator_id)
+                            human_annotations.append({
+                                'annotator_id': annotator_id,
+                                'score': row['human_score']
+                            })
+                    
+                    # Create a summary row with all information
+                    summary_row = {
+                        'prompt_id': prompt_id,
+                        'subject_model': subject_model,
+                        'task': task,
+                        'prompt_truncated': group['prompt_truncated'].iloc[0],
+                        'prompt_full': group['prompt'].iloc[0],
+                        'num_human_annotations': len(human_annotations),
+                        'human_scores': ','.join([str(a['score']) for a in human_annotations]),
+                        'human_annotator_ids': ','.join([a['annotator_id'] for a in human_annotations])
+                    }
+                    
+                    # Add AI evaluator scores
+                    for evaluator in ['gemini', 'claude', 'o3', '4.1']:
+                        eval_scores = group[group['evaluator'] == evaluator]['ai_score'].values
+                        if len(eval_scores) > 0:
+                            summary_row[f'{evaluator}_score'] = eval_scores[0]
+                        else:
+                            summary_row[f'{evaluator}_score'] = None
+                    
+                    replication_data.append(summary_row)
+        
+        if replication_data:
+            replication_df = pd.DataFrame(replication_data)
+            replication_file = base_path / 'krippendorff_replication_dataset.csv'
+            replication_df.to_csv(replication_file, index=False)
+            print(f"  Replication dataset saved to: {replication_file.name}")
+            print(f"  Contains {len(replication_df):,} unique prompt-model-task combinations")
+            print(f"  Key columns:")
+            print(f"    - prompt_id: Unique identifier for prompt-model pair")
+            print(f"    - human_annotator_ids: Comma-separated list of annotator IDs")  
+            print(f"    - human_scores: Comma-separated list of human scores")
+            print(f"    - [evaluator]_score: Score from each AI evaluator")
+            print(f"  Use prompt_id to match experiments across runs")
 
 if __name__ == "__main__":
     import sys
