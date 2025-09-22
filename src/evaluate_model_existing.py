@@ -11,7 +11,7 @@ from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
 
 
-N_CONCURRENT_REQUESTS = 1000
+N_CONCURRENT_REQUESTS = 50  # Reduced to avoid Cloudflare rate limits
 
 
 @hash_cache()
@@ -77,7 +77,9 @@ def get_model_responses(
     """
     
     # --- Fast path: Use Batch API if possible and all system prompts are the same ---
-    if use_batching and model.startswith(("claude", "gpt-", "o")) and len(set(system_prompts)) == 1:
+    # Note: OpenRouter models (like "openai/o3") should not use OpenAI batch API
+    is_openrouter = "/" in model  # OpenRouter models have provider prefix like "openai/", "anthropic/", etc.
+    if use_batching and not is_openrouter and model.startswith(("claude", "gpt-", "o")) and len(set(system_prompts)) == 1:
         print(f"[DEBUG] Using batch API path for {model} with {len(prompts)} prompts")
         try:
             # Pass a tuple of prompts to make it hashable for the cache
@@ -177,13 +179,20 @@ def get_scores(
     ]
     for evaluator_response in evaluator_responses:
         total_deduction = 0
-        if evaluator_response in error_placeholders:
+        # Extract content if response is a dict (from new LLM implementations)
+        if isinstance(evaluator_response, dict):
+            response_text = evaluator_response.get('content', str(evaluator_response))
+        else:
+            response_text = evaluator_response
+            
+        if response_text in error_placeholders:
             total_deduction = prompt_object.top_eval_score
         else:
             try:
-                total_deduction = sum_deductions_from_json(evaluator_response, prompt_object.deductions)
+                total_deduction = sum_deductions_from_json(response_text, prompt_object.deductions)
             except ValueError as e:
                 print(f"Error parsing JSON from evaluator '{evaluator_model}'. Assigning max deduction. Error: {e}")
+                print(f"Original response: {evaluator_response}")
                 total_deduction = prompt_object.top_eval_score
 
         score = max(prompt_object.top_eval_score - total_deduction, 0)
@@ -271,7 +280,7 @@ def evaluate_many_subject_models_existing(
     use_cache: bool,
     refresh_cache: bool,
     evaluator_max_tokens: int = 8192,
-    max_concurrent_subjects: int = 6,
+    max_concurrent_subjects: int = 1,
 ) -> pd.DataFrame:
     """Evaluate existing subject model responses with a new evaluator."""
     dfs = []
@@ -342,7 +351,7 @@ def evaluate_many_subject_models(
     misinformation: List[str] = None,
     evaluator_max_tokens: int = 8192,
     use_batching_for_subjects: bool = False,
-    max_concurrent_subjects: int = 6,
+    max_concurrent_subjects: int = 1,
 ) -> pd.DataFrame:
     dfs = []
 

@@ -12,3 +12,4 @@ replicate
 google-generativeai
 umap-learn
 tqdm
+requests

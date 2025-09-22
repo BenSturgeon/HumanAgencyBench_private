@@ -11,7 +11,7 @@ from src.llms import LLM
 from src.utils import hash_cache, sum_deductions_from_json
 
 
-N_CONCURRENT_REQUESTS = 1000
+N_CONCURRENT_REQUESTS = 20
 
 
 @hash_cache()
@@ -77,7 +77,9 @@ def get_model_responses(
     """
     
     # --- Fast path: Use Batch API if possible and all system prompts are the same ---
-    if use_batching and model.startswith(("claude", "gpt-", "o")) and len(set(system_prompts)) == 1:
+    # Note: OpenRouter models (like "openai/o3") should not use OpenAI batch API
+    is_openrouter = "/" in model  # OpenRouter models have provider prefix like "openai/", "anthropic/", etc.
+    if use_batching and not is_openrouter and model.startswith(("claude", "gpt-", "o")) and len(set(system_prompts)) == 1:
         print(f"[DEBUG] Using batch API path for {model} with {len(prompts)} prompts")
         try:
             # Pass a tuple of prompts to make it hashable for the cache
@@ -141,18 +143,27 @@ def get_scores(
     eval_system_prompts = []
     system_prompt = prompt_object.subject_evaluation_system_prompt()
     for i, (prompt, response) in enumerate(zip(prompts, subject_responses)):
+        # Extract content if response is a dict (from new LLM implementations)
+        response_text = response.get('content', response) if isinstance(response, dict) else response
+        
         if misinformation:
             eval_prompts.append(
-                prompt_object.subject_evaluation_prompt(prompt, response, misinformation[i])
+                prompt_object.subject_evaluation_prompt(prompt, response_text, misinformation[i])
             )
         else:
             eval_prompts.append(
-                prompt_object.subject_evaluation_prompt(prompt, response)
+                prompt_object.subject_evaluation_prompt(prompt, response_text)
             )
         eval_system_prompts.append(system_prompt)
 
     # 2. Get responses from the evaluator model
     print(f"[DEBUG] Calling evaluator model {evaluator_model} with {len(eval_prompts)} evaluation prompts...")
+    # Disable batching for o3 models temporarily (batch API issues)
+    use_evaluator_batching = True
+    if evaluator_model and ("o3" in evaluator_model.lower() or evaluator_model.startswith("o3")):
+        use_evaluator_batching = False
+        print("[DEBUG] Disabling batch API for o3 evaluator")
+
     evaluator_responses, _ = get_model_responses(
         prompts=eval_prompts,
         system_prompts=eval_system_prompts,
@@ -163,7 +174,7 @@ def get_scores(
         use_cache=use_cache,
         refresh_cache=refresh_cache,
         stage_name="Evaluator Scoring",
-        use_batching=True, # Always attempt to batch for the judge
+        use_batching=use_evaluator_batching,
     )
     print(f"[DEBUG] Got {len(evaluator_responses)} evaluator responses")
 
@@ -177,13 +188,20 @@ def get_scores(
     ]
     for evaluator_response in evaluator_responses:
         total_deduction = 0
-        if evaluator_response in error_placeholders:
+        # Extract content if response is a dict (from new LLM implementations)
+        if isinstance(evaluator_response, dict):
+            response_text = evaluator_response.get('content', str(evaluator_response))
+        else:
+            response_text = evaluator_response
+            
+        if response_text in error_placeholders:
             total_deduction = prompt_object.top_eval_score
         else:
             try:
-                total_deduction = sum_deductions_from_json(evaluator_response, prompt_object.deductions)
+                total_deduction = sum_deductions_from_json(response_text, prompt_object.deductions)
             except ValueError as e:
                 print(f"Error parsing JSON from evaluator '{evaluator_model}'. Assigning max deduction. Error: {e}")
+                print(f"Original response: {evaluator_response}")
                 total_deduction = prompt_object.top_eval_score
 
         score = max(prompt_object.top_eval_score - total_deduction, 0)
@@ -236,7 +254,12 @@ def evaluate_model(
     print(f"[DEBUG] Got {len(subject_responses)} subject responses")
     
     # Check if we have any actual responses or just errors
-    error_count = sum(1 for r in subject_responses if r in ["[RATE LIMIT ERROR DURING LLM CHAT]", "[ERROR DURING LLM CHAT]", "[GENERATION STOPPED DUE TO RECITATION]", "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"])
+    error_placeholders = ["[RATE LIMIT ERROR DURING LLM CHAT]", "[ERROR DURING LLM CHAT]", "[GENERATION STOPPED DUE TO RECITATION]", "[ANTHROPIC OVERLOAD ERROR DURING LLM CHAT]"]
+    error_count = 0
+    for r in subject_responses:
+        response_text = r.get('content', r) if isinstance(r, dict) else r
+        if response_text in error_placeholders:
+            error_count += 1
     print(f"[DEBUG] Subject responses: {len(subject_responses) - error_count} successful, {error_count} errors")
     
     print(f"[DEBUG] Getting evaluator scores using {evaluator_model}...")
@@ -278,7 +301,7 @@ def evaluate_many_subject_models(
     misinformation: List[str] = None,
     evaluator_max_tokens: int = 8192,
     use_batching_for_subjects: bool = False,
-    max_concurrent_subjects: int = 6,
+    max_concurrent_subjects: int = 1,
 ) -> pd.DataFrame:
     dfs = []
 

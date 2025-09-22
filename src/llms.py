@@ -70,7 +70,7 @@ class RateLimitedLLM:
 
 
 class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
-    def __init__(self, model, system_prompt, base_url=None, api_key=None) -> None:
+    def __init__(self, model, system_prompt, base_url=None, api_key=None, reasoning_effort=None) -> None:
         super().__init__(system_prompt)
         self.base_url = base_url
         self.api_key = api_key
@@ -79,15 +79,18 @@ class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
             base_url=self.base_url,
         )
         self.model = model
+        self.reasoning_effort = reasoning_effort  # For GPT-5 models
         # Check if model is from the OpenAI "o" series (o1, o3, o4, etc.)
         self.is_o1_model = model and (
-            model.startswith("o1") or 
-            model.startswith("o3") or 
+            model.startswith("o1") or
+            model.startswith("o3") or
             model.startswith("o4") or
             "o1-" in model or
             "o3-" in model or
             "o4-" in model
         )
+        # Check if model is GPT-5
+        self.is_gpt5_model = model and model.startswith("gpt-5")
 
     def chat(
         self,
@@ -98,7 +101,48 @@ class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
         return_json=False,
         return_logprobs=False,
     ):
-        if self.is_o1_model:
+        if self.is_gpt5_model:
+            # GPT-5 uses chat completions API with special parameters
+            self.messages.append({"role": "user", "content": prompt})
+            params = {
+                "messages": self.messages,
+                "model": self.model,
+            }
+
+            # GPT-5 uses max_completion_tokens instead of max_tokens
+            if max_tokens is not None:
+                params["max_completion_tokens"] = max_tokens
+
+            # GPT-5 doesn't support temperature or top_p parameters
+            # Just use defaults
+            if return_json:
+                params["response_format"] = {"type": "json_object"}
+            if return_logprobs:
+                params.update({"logprobs": True, "top_logprobs": 5})
+
+            # Add reasoning effort for GPT-5 models
+            if self.reasoning_effort:
+                params["reasoning_effort"] = self.reasoning_effort
+            else:
+                # Default to minimal for speed in evaluations
+                params["reasoning_effort"] = "minimal"
+
+            response = self.client.chat.completions.create(**params)
+            response_text = response.choices[0].message.content.strip()
+            self.messages.append({"role": "assistant", "content": response_text})
+
+            if return_logprobs:
+                return {
+                    "content": response.choices[0].message.content,
+                    "logprobs": response.choices[0].logprobs,
+                    "usage": response.usage,
+                }
+            else:
+                return {
+                    "content": response_text,
+                    "usage": response.usage,
+                }
+        elif self.is_o1_model:
             messages = [msg for msg in self.messages if msg["role"] != "system"]
 
             if self.system_prompt:
@@ -164,10 +208,28 @@ class OpenAILLM(ABSTRACT_LLM, AvailableModelsCache):
 
     @classmethod
     def get_available_models(cls):
-        return cls.model_cache_get(
+        # Get models from API
+        api_models = cls.model_cache_get(
             "openai_models",
             lambda: [model.id for model in OpenAI().models.list().data]
         )
+        
+        # Add custom/special models that may not appear in the API list
+        custom_models = [
+            "gpt-4.1-2025-04-14",
+            "o3-2025-04-16",
+            "o1-preview",
+            "o1-mini",
+            "o3-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5-high"  # This is GPT-5 with high reasoning effort
+        ]
+        
+        # Combine and deduplicate
+        all_models = list(set(api_models + custom_models))
+        return all_models
 
 
 class GrokLLM(OpenAILLM):
@@ -306,14 +368,24 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
                 }
             ]
 
-            params = MessageCreateParamsNonStreaming(
-                model=self.model,
-                messages=messages_payload,
-                max_tokens=req_max_tokens,
-                temperature=req_temperature,
-                top_p=req_top_p,
-                system=self.system_prompt,
-            )
+            # Anthropic API doesn't allow both temperature and top_p to be set
+            # Use temperature if both are provided, otherwise use top_p
+            if temperature is not None:
+                params = MessageCreateParamsNonStreaming(
+                    model=self.model,
+                    messages=messages_payload,
+                    max_tokens=req_max_tokens,
+                    temperature=req_temperature,
+                    system=self.system_prompt,
+                )
+            else:
+                params = MessageCreateParamsNonStreaming(
+                    model=self.model,
+                    messages=messages_payload,
+                    max_tokens=req_max_tokens,
+                    top_p=req_top_p,
+                    system=self.system_prompt,
+                )
 
             anthropic_reqs.append(
                 AnthropicRequest(
@@ -384,33 +456,41 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
         # Helper to robustly extract assistant text from varying result schemas
         def _extract_text(obj: dict):
-            # Case 1: modern schema => obj['message']['content'][0]['text']
-            if isinstance(obj.get("message"), dict):
-                content = obj["message"].get("content")
-                if isinstance(content, list) and content and "text" in content[0]:
-                    return content[0]["text"]
-
-            # Case 2: some SDKs nest under 'response'
-            if isinstance(obj.get("response"), dict):
-                content = obj["response"].get("content")
-                if isinstance(content, list) and content and "text" in content[0]:
-                    return content[0]["text"]
-
-            # Case 2b: new batch schema => obj['result']['message']['content'][0]['text']
+            # Case 1: Check for error response first
             if isinstance(obj.get("result"), dict):
                 res = obj["result"]
+
+                # Handle error case
+                if "error" in res:
+                    error_msg = res.get("error", {}).get("error", {}).get("message", "Unknown error")
+                    print(f"[ERROR] Batch API error: {error_msg}")
+                    return f"[BATCH API ERROR: {error_msg}]"
+
+                # Handle success case
                 if res.get("type") == "succeeded" and isinstance(res.get("message"), dict):
                     content = res["message"].get("content")
                     if isinstance(content, list) and content and "text" in content[0]:
                         return content[0]["text"]
 
-            # Case 3: flat 'content' list
+            # Case 2: modern schema => obj['message']['content'][0]['text']
+            if isinstance(obj.get("message"), dict):
+                content = obj["message"].get("content")
+                if isinstance(content, list) and content and "text" in content[0]:
+                    return content[0]["text"]
+
+            # Case 3: some SDKs nest under 'response'
+            if isinstance(obj.get("response"), dict):
+                content = obj["response"].get("content")
+                if isinstance(content, list) and content and "text" in content[0]:
+                    return content[0]["text"]
+
+            # Case 4: flat 'content' list
             if isinstance(obj.get("content"), list):
                 content = obj["content"]
                 if content and isinstance(content[0], dict) and "text" in content[0]:
                     return content[0]["text"]
 
-            # Case 4: flat 'content' string (unlikely for chat)
+            # Case 5: flat 'content' string (unlikely for chat)
             if isinstance(obj.get("content"), str):
                 return obj["content"]
 
@@ -425,6 +505,9 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
             if assistant_text is None:
                 print(f"[WARN] Unable to parse assistant text from batch result (keys={list(item.keys())}).")
+                # Debug: print the actual structure to understand the format
+                import json
+                print(f"[DEBUG] Batch result item structure: {json.dumps(item, indent=2, default=str)[:500]}")
                 assistant_text = "[ERROR PARSING BATCH RESULT]"
 
             responses_map[int(cid)] = assistant_text
@@ -439,7 +522,7 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
 
     @staticmethod
     def get_available_models():
-        return [ 
+        return [
             "claude-3-7-sonnet-20250219",
             "claude-3-5-sonnet-20240620",
             "claude-3-opus-20240229",
@@ -448,7 +531,9 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
             "claude-3-5-sonnet-20241022",
             "claude-3-5-haiku-20241022",
             "claude-sonnet-4-20250514",
-            "claude-opus-4-20250514"
+            "claude-opus-4-20250514",
+            "claude-4-sonnet",  # Adding Claude 4 Sonnet
+            "claude-opus-4-1-20250805"  # Adding Claude Opus 4.1
         ]
 
 
@@ -634,8 +719,20 @@ class OpenRouterLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
     def __init__(self, model: str, system_prompt: str) -> None:
         super().__init__(system_prompt)
         self.model = model
+        
+        # Load API key directly from keys.json
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            try:
+                import json
+                with open("keys.json", "r") as f:
+                    keys = json.load(f)
+                    api_key = keys.get("OPENROUTER_API_KEY")
+            except Exception:
+                pass
+        
         self.client = OpenAI(
-            api_key=os.getenv("OPENROUTER_API_KEY"),
+            api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
             default_headers={
                 "HTTP-Referer": "https://github.com/agency_evaluations",
@@ -655,7 +752,7 @@ class OpenRouterLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
         """Send a single chat request to OpenRouter."""
         
         # Rate limiting - adjust based on model
-        self.rate_limit_wait(self.model, 60)  # Default 60 req/min
+        self.rate_limit_wait(self.model, 500)  # Increased to 300 req/min for maximum speed
         
         self.messages.append({"role": "user", "content": prompt})
         
@@ -693,8 +790,14 @@ class OpenRouterLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
             return result
             
         except Exception as e:
-            # Handle errors gracefully
-            error_msg = f"[ERROR DURING LLM CHAT]: {str(e)}"
+            # Check if this is an insufficient credits error
+            error_str = str(e)
+            if "Insufficient credits" in error_str or "Error code: 402" in error_str:
+                # Crash immediately for insufficient credits
+                raise RuntimeError(f"OpenRouter insufficient credits error - stopping execution: {error_str}")
+            
+            # Handle other errors gracefully
+            error_msg = f"[ERROR DURING LLM CHAT]: {error_str}"
             self.messages.append({"role": "assistant", "content": error_msg})
             return {
                 "content": error_msg,
@@ -730,8 +833,13 @@ class OpenRouterLLM(ABSTRACT_LLM, AvailableModelsCache, RateLimitedLLM):
             "openai/gpt-3.5-turbo",
             "openai/gpt-4o",
             "openai/gpt-4o-mini",
+            "openai/gpt-4.1",
+            "openai/gpt-4.1-mini",
             "openai/o1-preview",
             "openai/o1-mini",
+            "openai/o3",
+            "openai/o3-mini",
+            "openai/o3-pro",
             
             # Anthropic models  
             "anthropic/claude-3-opus",
@@ -786,8 +894,12 @@ class LLM(ABSTRACT_LLM):
     def __init__(self, model, system_prompt) -> None:
         self.system_prompt = system_prompt
         self.model = model
-        
-        if model in GeminiLLM.get_available_models():
+
+        # Handle special GPT-5 high reasoning effort case
+        if model == "gpt-5-high":
+            # GPT-5 with medium reasoning effort (changed from high for faster responses)
+            self.llm = OpenAILLM("gpt-5", system_prompt, reasoning_effort="medium")
+        elif model in GeminiLLM.get_available_models():
             self.llm = GeminiLLM(model, system_prompt)
         elif model in AnthropicLLM.get_available_models():
             self.llm = AnthropicLLM(model, system_prompt)

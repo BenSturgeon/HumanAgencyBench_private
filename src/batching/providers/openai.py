@@ -11,6 +11,7 @@ required) by passing the ``requests=[...]`` parameter to
 from typing import List, Tuple, Optional, Any, Dict
 import time
 import json
+import os
 
 from openai import OpenAI
 
@@ -52,12 +53,23 @@ class OpenAIBatchAdapter(BaseBatchAdapter):
                 "messages": messages,
             }
             # Only include optional params when provided to avoid server errors.
-            if temperature is not None:
-                body["temperature"] = temperature
-            if top_p is not None:
-                body["top_p"] = top_p
+            # GPT-5 models don't support temperature and top_p parameters
+            if not model.startswith("gpt-5"):
+                if temperature is not None:
+                    body["temperature"] = temperature
+                if top_p is not None:
+                    body["top_p"] = top_p
             if max_tokens is not None:
-                body["max_tokens"] = max_tokens
+                # GPT-5 and o3 models use max_completion_tokens instead of max_tokens
+                if model.startswith("gpt-5") or model.startswith("o3") or "o3-" in model:
+                    body["max_completion_tokens"] = max_tokens
+                    # Add reasoning_effort for GPT-5 models
+                    if model == "gpt-5-high":
+                        body["reasoning_effort"] = "medium"
+                    elif model.startswith("gpt-5"):
+                        body["reasoning_effort"] = "minimal"
+                else:
+                    body["max_tokens"] = max_tokens
 
             requests.append(
                 {
@@ -96,7 +108,17 @@ class OpenAIBatchAdapter(BaseBatchAdapter):
         )
 
         # 2. Create batch ------------------------------------------------------
-        client = OpenAI()
+        # Load API key from keys.json or environment
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            try:
+                with open('keys.json', 'r') as f:
+                    keys = json.load(f)
+                    api_key = keys.get('OPENAI_API_KEY')
+            except:
+                pass
+
+        client = OpenAI(api_key=api_key) if api_key else OpenAI()
         try:
             batch = client.batches.create(
                 requests=requests,
@@ -108,7 +130,7 @@ class OpenAIBatchAdapter(BaseBatchAdapter):
                 raise BatchUnsupported(f"Failed to create OpenAI batch: {e}") from e
 
             # --- Fallback path: write JSONL file then upload ---------
-            import tempfile, os
+            import tempfile
 
             jsonl_lines = [json.dumps(r) for r in requests]
             with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".jsonl") as fh:
