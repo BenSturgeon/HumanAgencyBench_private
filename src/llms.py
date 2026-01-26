@@ -533,7 +533,9 @@ class AnthropicLLM(ABSTRACT_LLM, RateLimitedLLM):
             "claude-sonnet-4-20250514",
             "claude-opus-4-20250514",
             "claude-4-sonnet",  # Adding Claude 4 Sonnet
-            "claude-opus-4-1-20250805"  # Adding Claude Opus 4.1
+            "claude-opus-4-1-20250805",  # Adding Claude Opus 4.1
+            "claude-sonnet-4-5-20250929",  # Claude Sonnet 4.5
+            "claude-opus-4-5-20251101",  # Claude Opus 4.5
         ]
 
 
